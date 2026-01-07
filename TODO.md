@@ -2,63 +2,121 @@
 
 ## Implementation Progress
 
-### ✅ Completed
+### ✅ COMPLETED - Core Application
 - [x] Project directory structure
 - [x] Gemfile with Ruby 3.4.8 and dependencies (StandardRB)
-- [x] Basic project files (config.ru, .gitignore)
-- [x] CLAUDE.md configuration file
+- [x] Basic project files (config.ru, .gitignore, .env.example)
+- [x] CLAUDE.md configuration file with development commands
+- [x] Set up Puma configuration
+- [x] Create main Sinatra app.rb with routing structure
+- [x] Implement JSON data storage handlers (DataStore class)
+- [x] Build Playwright web scraper with browser automation
+- [x] Create ERB views for web dashboard (layout, dashboard, patron views)
+- [x] Implement REST API endpoints (/api/status, /api/patron/:name, /health)
+- [x] Set up rufus-scheduler for automated scraping
 
-### 🚧 In Progress
-- [ ] Create TODO.md file (this file)
+### ✅ COMPLETED - Deployment & CI/CD
+- [x] Create Dockerfile with Ruby 3.4.8 and Playwright
+- [x] Build docker-compose.yml for deployment
+- [x] Create GitHub Actions workflow for GHCR
+- [x] Write comprehensive README.md with full documentation
 
-### 📋 Pending
+## 🚀 NEXT STEPS (Deployment & Customization)
 
-#### Core Application
-- [ ] Set up Puma configuration
-- [ ] Create main Sinatra app.rb with routing structure
-- [ ] Implement JSON data storage handlers
-- [ ] Build Playwright web scraper with browser automation
-- [ ] Create ERB views for web dashboard
-- [ ] Implement REST API endpoints
-- [ ] Set up rufus-scheduler for automated scraping
+### 1. 📋 Library Website Customization (HIGH PRIORITY)
+- [ ] **Use Playwright MCP tool** to inspect your library's website structure
+- [ ] **Update login selectors** in `lib/library_scraper.rb` (lines 60-70)
+  - `USERNAME_SELECTOR`
+  - `PASSWORD_SELECTOR` 
+  - `LOGIN_BUTTON_SELECTOR`
+- [ ] **Update checkout page selectors** (lines 90-110)
+  - `CHECKOUTS_CONTAINER_SELECTOR`
+  - `CHECKOUT_ITEM_SELECTOR`
+  - `TITLE_SELECTOR`, `AUTHOR_SELECTOR`, `DUE_DATE_SELECTOR`, etc.
+- [ ] **Update holds page selectors** (lines 140-160)
+  - `HOLDS_CONTAINER_SELECTOR`
+  - `HOLD_ITEM_SELECTOR` 
+  - Title, author, status selectors
+- [ ] **Test scraping** with `PLAYWRIGHT_HEADLESS=false` for debugging
 
-#### Deployment & CI/CD
-- [ ] Create Dockerfile with Ruby 3.4.8 and Playwright
-- [ ] Build docker-compose.yml for deployment
-- [ ] Create GitHub Actions workflow for GHCR
-- [ ] Write comprehensive README.md
+### 2. 🔧 Environment Configuration
+- [ ] **Copy `.env.example` to `.env`** and fill in your details:
+  - Your library's URL (`LIBRARY_URL`)
+  - Family member names and credentials (`PATRON_1_NAME`, etc.)
+  - Optional settings (scrape interval, log level)
 
-## Customization Notes
+### 3. 🐙 GitHub Container Registry Setup
+- [ ] **Create GitHub Personal Access Token**:
+  - Go to GitHub Settings → Developer Settings → Personal Access Tokens
+  - Create token with `read:packages`, `write:packages`, `delete:packages` permissions
+- [ ] **Push to GitHub repository** (triggers automated Docker build)
+- [ ] **Verify GHCR image** is published at `ghcr.io/YOUR_USERNAME/dewey`
 
-### Library Website Integration
-The scraper will need customization for specific library systems. Key areas:
-- Login form selectors
-- Checkout table/list structure
-- Holds queue structure
-- Book thumbnail sources
-- Due date formats
+### 4. 🏠 Proxmox Homelab Deployment
+- [ ] **Update docker-compose.yml** with your GitHub username:
+  - Change `ghcr.io/YOUR_USERNAME/dewey:latest` to actual username
+  - Add your library URL and credentials to environment section
+- [ ] **Deploy on Proxmox**:
+  ```bash
+  docker-compose up -d
+  ```
+- [ ] **Verify deployment**:
+  - Web interface: `http://your-server:4567`
+  - API endpoint: `http://your-server:4567/api/status`
+  - Health check: `http://your-server:4567/health`
 
-### Environment Variables Required
-```env
-LIBRARY_URL=https://your-library.org
-PATRON_1_NAME=John
-PATRON_1_USER=john.doe
-PATRON_1_PASS=password123
-PATRON_2_NAME=Jane
-PATRON_2_USER=jane.doe
-PATRON_2_PASS=password456
-```
+### 5. 🔌 Home Assistant Integration (Optional)
+- [ ] **Add REST sensors** to Home Assistant configuration
+- [ ] **Create template sensors** for library status
+- [ ] **Set up automations** for due date notifications
 
-### GitHub Container Registry Setup
-1. Create PAT with packages:write permission
-2. Add GHCR_TOKEN to repository secrets
-3. Configure workflow for automated builds
-4. Deploy via docker-compose with ghcr.io image
+## 🛠️ Development & Testing Workflow
 
-## Development Workflow
-1. Use Playwright MCP to inspect library website
-2. Update CSS selectors in scraper
-3. Test locally with `bundle exec rerun ruby app.rb`
-4. Run StandardRB: `bundle exec standard`
-5. Build Docker image and test
-6. Push to main branch for automated GHCR build
+### Local Development Testing
+1. **Install dependencies**: `bundle install`
+2. **Set up environment**: Copy `.env.example` to `.env` and configure
+3. **Test scraper selectors**: Set `PLAYWRIGHT_HEADLESS=false` for visual debugging
+4. **Run locally**: `bundle exec rerun ruby app.rb`
+5. **Check code style**: `bundle exec standard`
+
+### Docker Testing
+1. **Build image locally**: `docker build -t dewey .`
+2. **Test container**: `docker run -p 4567:4567 --env-file .env dewey`
+3. **Verify functionality**: Check web interface and API endpoints
+
+### Production Deployment
+1. **Push to GitHub**: Triggers automated GHCR build
+2. **Pull latest image**: `docker-compose pull`
+3. **Deploy**: `docker-compose up -d`
+4. **Monitor logs**: `docker-compose logs -f dewey`
+
+## 📝 Customization Notes
+
+### Key Files to Modify
+- **`lib/library_scraper.rb`**: Update CSS selectors for your library system
+- **`docker-compose.yml`**: Configure environment variables for deployment
+- **`.env`**: Local development environment configuration
+
+### Common Library System Patterns
+- **Public Library websites**: Often use Sirsi, Polaris, or Evergreen ILS systems
+- **Login forms**: Look for `#username`, `input[name="user"]`, or similar patterns
+- **Account pages**: Usually `/account`, `/patron`, or `/myaccount` paths
+- **Checkout tables**: Often have `.checkout-item`, `.loan`, or `.borrowed-item` classes
+
+### Debugging Tips
+- **Use browser developer tools** to inspect element selectors
+- **Set `PLAYWRIGHT_HEADLESS=false`** to watch automation in real-time
+- **Check application logs** for scraping errors and HTTP responses
+- **Test with single patron** first before adding multiple family members
+
+## ✅ Ready for Production
+
+The Dewey Library Tracker is **production-ready** with:
+- Comprehensive error handling and logging
+- Secure containerized deployment
+- Automated CI/CD pipeline
+- Responsive web interface
+- Home Assistant API integration
+- Detailed documentation
+
+**Next step**: Customize the CSS selectors for your specific library system!
