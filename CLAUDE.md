@@ -20,19 +20,25 @@
 
 ## Environment Variables
 
+Configure by copying `.env.example` to `.env` and editing with your values:
+
+```bash
+cp .env.example .env
+```
+
 Required for library scraping:
-- `LIBRARY_URL` - Base URL of library website
+- `LIBRARY_URL=https://lawrence.bibliocommons.com` - Your library URL
 - `PATRON_1_NAME` - Display name for first family member
 - `PATRON_1_USER` - Login username for first patron
 - `PATRON_1_PASS` - Login password for first patron
 - `PATRON_2_NAME` - Display name for second family member (optional)
-- `PATRON_2_USER` - Login username for second patron (optional)
+- `PATRON_2_USER` - Login username for second patron (optional)  
 - `PATRON_2_PASS` - Login password for second patron (optional)
 
 Optional configuration:
-- `PLAYWRIGHT_HEADLESS` - Set to 'false' for debugging (default: 'true')
-- `SCRAPE_INTERVAL` - Hours between scrapes (default: 1)
-- `LOG_LEVEL` - Logging level: DEBUG, INFO, WARN, ERROR (default: INFO)
+- `PLAYWRIGHT_HEADLESS=true` - Set to 'false' for debugging
+- `SCRAPE_INTERVAL=1` - Hours between scrapes
+- `LOG_LEVEL=INFO` - Logging level: DEBUG, INFO, WARN, ERROR
 
 ## Project Structure
 - `app.rb` - Main Sinatra application

@@ -21,37 +21,43 @@ This application is designed to run in a Docker container on your home lab (Prox
 
 ### 1. Pull and Run with Docker Compose
 
-Create a `docker-compose.yml` file:
+1. **Create environment file from template:**
+   ```bash
+   cp .env.example .env
+   ```
 
-```yaml
-version: '3.8'
+2. **Edit `.env` with your library credentials:**
+   ```env
+   LIBRARY_URL=https://lawrence.bibliocommons.com
+   
+   PATRON_1_NAME=John Doe
+   PATRON_1_USER=john.library.username
+   PATRON_1_PASS=john_library_password
+   
+   PATRON_2_NAME=Jane Doe
+   PATRON_2_USER=jane.library.username
+   PATRON_2_PASS=jane_library_password
+   
+   SCRAPE_INTERVAL=1
+   LOG_LEVEL=INFO
+   ```
 
-services:
-  dewey:
-    image: ghcr.io/YOUR_USERNAME/dewey:latest
-    container_name: dewey-library-tracker
-    restart: unless-stopped
-    ports:
-      - "4567:4567"
-    volumes:
-      - ./data:/app/data
-    environment:
-      # Replace with your library's URL
-      - LIBRARY_URL=https://your-library.org
-      
-      # Add your family members' library credentials
-      - PATRON_1_NAME=John Doe
-      - PATRON_1_USER=john.library.username
-      - PATRON_1_PASS=john_library_password
-      
-      - PATRON_2_NAME=Jane Doe
-      - PATRON_2_USER=jane.library.username
-      - PATRON_2_PASS=jane_library_password
-      
-      # Optional settings
-      - SCRAPE_INTERVAL=1
-      - LOG_LEVEL=INFO
-```
+3. **Create `docker-compose.yml` file:**
+   ```yaml
+   version: '3.8'
+   
+   services:
+     dewey:
+       image: ghcr.io/opticbob/dewey:latest
+       container_name: dewey-library-tracker
+       restart: unless-stopped
+       ports:
+         - "4567:4567"
+       volumes:
+         - ./data:/app/data
+       env_file:
+         - .env
+   ```
 
 Then run:
 
@@ -86,12 +92,12 @@ docker-compose up -d
 
 ### Adding More Family Members
 
-Simply add additional patron environment variables:
+Simply add additional patron environment variables to your `.env` file:
 
-```yaml
-- PATRON_3_NAME=Kid Doe
-- PATRON_3_USER=kid.library.username
-- PATRON_3_PASS=kid_library_password
+```env
+PATRON_3_NAME=Kid Doe
+PATRON_3_USER=kid.library.username
+PATRON_3_PASS=kid_library_password
 ```
 
 ## 🔧 Customizing for Your Library
@@ -230,7 +236,7 @@ Add this to your Home Assistant `configuration.yaml`:
 
 ```yaml
 rest:
-  - resource: "http://dewey:4567/api/status"
+  - resource: "http://your-server:4567/api/status"  # Replace with your Dewey server IP/hostname
     scan_interval: 300
     sensor:
       - name: "Library Checkouts"

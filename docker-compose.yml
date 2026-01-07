@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   dewey:
-    image: ghcr.io/YOUR_USERNAME/dewey:latest
+    image: ghcr.io/opticbob/dewey:latest
     container_name: dewey-library-tracker
     restart: unless-stopped
     ports:
@@ -10,26 +10,8 @@ services:
     volumes:
       # Persistent data storage for JSON files and thumbnails
       - ./data:/app/data
-    environment:
-      # Library configuration - REQUIRED
-      - LIBRARY_URL=https://your-library.org
-      
-      # Family member credentials - REQUIRED
-      # Add as many patrons as needed (PATRON_1_, PATRON_2_, etc.)
-      - PATRON_1_NAME=John Doe
-      - PATRON_1_USER=john.doe.library.username
-      - PATRON_1_PASS=john_library_password
-      
-      - PATRON_2_NAME=Jane Doe  
-      - PATRON_2_USER=jane.doe.library.username
-      - PATRON_2_PASS=jane_library_password
-      
-      # Optional configuration
-      - SCRAPE_INTERVAL=1                    # Hours between scrapes (default: 1)
-      - LOG_LEVEL=INFO                       # DEBUG, INFO, WARN, ERROR (default: INFO)
-      - PLAYWRIGHT_HEADLESS=true             # Set to false for debugging (default: true)
-      - RACK_ENV=production
-      - PORT=4567
+    env_file:
+      - .env
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4567/health"]
       interval: 30s

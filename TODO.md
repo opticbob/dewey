@@ -53,9 +53,10 @@
 - [ ] **Verify GHCR image** is published at `ghcr.io/YOUR_USERNAME/dewey`
 
 ### 4. 🏠 Proxmox Homelab Deployment
-- [ ] **Update docker-compose.yml** with your GitHub username:
-  - Change `ghcr.io/YOUR_USERNAME/dewey:latest` to actual username
-  - Add your library URL and credentials to environment section
+- [ ] **Copy and configure environment file**:
+  - `cp .env.example .env`
+  - Edit `.env` with your library credentials
+- [ ] **Use docker-compose.yml as-is** (already configured for ghcr.io/opticbob/dewey)
 - [ ] **Deploy on Proxmox**:
   ```bash
   docker-compose up -d
