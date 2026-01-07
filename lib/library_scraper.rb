@@ -94,27 +94,27 @@ class LibraryScraper
     page.goto(library_url)
 
     # ========================================
-    # CUSTOMIZE THESE SELECTORS FOR YOUR LIBRARY
+    # BIBLIOCOMMONS SELECTORS FOR LAWRENCE PUBLIC LIBRARY
     # ========================================
-    # 
-    # Use the Playwright MCP tool to inspect your library's website:
-    # 1. Navigate to your library's login page
-    # 2. Inspect the username/email field - update USERNAME_SELECTOR
-    # 3. Inspect the password field - update PASSWORD_SELECTOR  
-    # 4. Inspect the login/submit button - update LOGIN_BUTTON_SELECTOR
-    # 5. Test the selectors to make sure they work
-    #
-    # Common selector patterns:
-    # - By ID: '#username', '#password', '#login-btn'
-    # - By name: 'input[name="username"]', 'input[name="password"]'
-    # - By class: '.username-input', '.password-input', '.login-button'
-    # - By placeholder: 'input[placeholder="Username"]'
+    # These selectors are configured for Bibliocommons library systems
+    # If they stop working, inspect the login page and update as needed
     # ========================================
 
-    USERNAME_SELECTOR = '#username'          # CHANGE THIS
-    PASSWORD_SELECTOR = '#password'          # CHANGE THIS  
-    LOGIN_BUTTON_SELECTOR = '#login-btn'     # CHANGE THIS
+    # First click the "Sign In" button to open the login form
+    SIGN_IN_BUTTON_SELECTOR = '.header-signin'
+    
+    # Bibliocommons login form selectors
+    USERNAME_SELECTOR = '#name'
+    PASSWORD_SELECTOR = '#user_pin'
+    LOGIN_BUTTON_SELECTOR = 'input[type="submit"][name="commit"]'
 
+    # Click the "Sign In" button first
+    @logger.debug "Clicking sign in button"
+    page.click(SIGN_IN_BUTTON_SELECTOR)
+    
+    # Wait for login form to appear
+    page.wait_for_selector(USERNAME_SELECTOR, timeout: 5000)
+    
     # Fill in credentials
     @logger.debug "Filling in login credentials"
     page.fill(USERNAME_SELECTOR, patron[:username])
@@ -124,9 +124,8 @@ class LibraryScraper
     @logger.debug "Submitting login form"
     page.click(LOGIN_BUTTON_SELECTOR)
     
-    # Wait for login to complete - you may need to adjust this selector
-    # This should be an element that appears after successful login
-    LOGIN_SUCCESS_SELECTOR = '.account-summary, .patron-info, .dashboard' # CHANGE THIS
+    # Wait for login to complete - look for user menu or account elements
+    LOGIN_SUCCESS_SELECTOR = '.dropdown-menu-user, .user-display-name, .header-user-menu'
     
     begin
       page.wait_for_selector(LOGIN_SUCCESS_SELECTOR, timeout: 10000)
@@ -140,28 +139,17 @@ class LibraryScraper
     @logger.debug "Scraping checkouts"
     
     # ========================================
-    # CUSTOMIZE THESE SELECTORS FOR YOUR LIBRARY
+    # BIBLIOCOMMONS CHECKOUTS SELECTORS
     # ========================================
-    #
-    # Navigate to the checkouts/loans page on your library website
-    # Use Playwright MCP to inspect the checkout items structure:
-    # 1. Find the container that holds all checkout items
-    # 2. Find the pattern for individual checkout items  
-    # 3. Within each item, find selectors for:
-    #    - Title
-    #    - Author  
-    #    - Due date
-    #    - Item type (book, audiobook, etc)
-    #    - Thumbnail image (if available)
-    #    - Renewable status (if shown)
+    # Configured for Lawrence Public Library Bibliocommons system
     # ========================================
 
-    # Navigate to checkouts page (adjust URL path as needed)
-    CHECKOUTS_PAGE_PATH = '/checkouts'        # CHANGE THIS
+    # Navigate to checkouts page
+    CHECKOUTS_PAGE_PATH = '/v2/checkedout'
     page.goto(ENV['LIBRARY_URL'] + CHECKOUTS_PAGE_PATH)
 
     # Wait for checkout items to load
-    CHECKOUTS_CONTAINER_SELECTOR = '.checkout-items, .loans-list' # CHANGE THIS
+    CHECKOUTS_CONTAINER_SELECTOR = '.cp-batch-actions-list, .checkedout-items-list'
     
     begin
       page.wait_for_selector(CHECKOUTS_CONTAINER_SELECTOR, timeout: 5000)
@@ -170,14 +158,14 @@ class LibraryScraper
       return []
     end
 
-    # Selectors for individual checkout items and their properties
-    CHECKOUT_ITEM_SELECTOR = '.checkout-item, .loan-item'           # CHANGE THIS
-    TITLE_SELECTOR = '.title, .item-title h3'                      # CHANGE THIS
-    AUTHOR_SELECTOR = '.author, .item-author'                      # CHANGE THIS  
-    DUE_DATE_SELECTOR = '.due-date, .date-due'                     # CHANGE THIS
-    TYPE_SELECTOR = '.item-type, .format'                          # CHANGE THIS
-    THUMBNAIL_SELECTOR = '.cover-image img, .thumbnail img'        # CHANGE THIS
-    RENEWABLE_SELECTOR = '.renewable, .renew-button'               # CHANGE THIS (optional)
+    # Bibliocommons checkout item selectors
+    CHECKOUT_ITEM_SELECTOR = '.checkedout-item, .cp-batch-actions-item'
+    TITLE_SELECTOR = '.title-content a, .cp-title a'
+    AUTHOR_SELECTOR = '.cp-author-link, .author-link'
+    DUE_DATE_SELECTOR = '.checkedout-item-due-date, .cp-due-date'
+    TYPE_SELECTOR = '.cp-format-indicator, .format-indicator'
+    THUMBNAIL_SELECTOR = '.cp-jacket-cover img, .jacket-cover img'
+    RENEWABLE_SELECTOR = '.cp-batch-renew-checkbox, .renew-checkbox'
 
     checkout_items = page.locator(CHECKOUT_ITEM_SELECTOR).all
 
@@ -238,27 +226,18 @@ class LibraryScraper
     @logger.debug "Scraping holds"
     
     # ========================================
-    # CUSTOMIZE THESE SELECTORS FOR YOUR LIBRARY  
+    # BIBLIOCOMMONS HOLDS SELECTORS
     # ========================================
-    #
-    # Navigate to the holds/reservations page on your library website
-    # Use Playwright MCP to inspect the holds items structure:
-    # 1. Find the container that holds all hold items
-    # 2. Find the pattern for individual hold items
-    # 3. Within each item, find selectors for:
-    #    - Title
-    #    - Author
-    #    - Status (Ready for pickup, In transit, etc)
-    #    - Queue position (if shown)
-    #    - Thumbnail image (if available)
+    # Configured for Lawrence Public Library Bibliocommons system
+    # Using the holds URL you provided: /v2/holds
     # ========================================
 
-    # Navigate to holds page (adjust URL path as needed)  
-    HOLDS_PAGE_PATH = '/holds'                # CHANGE THIS
+    # Navigate to holds page
+    HOLDS_PAGE_PATH = '/v2/holds'
     page.goto(ENV['LIBRARY_URL'] + HOLDS_PAGE_PATH)
 
     # Wait for holds items to load
-    HOLDS_CONTAINER_SELECTOR = '.holds-items, .reservations-list' # CHANGE THIS
+    HOLDS_CONTAINER_SELECTOR = '.cp-batch-actions-list, .holds-items-list'
     
     begin
       page.wait_for_selector(HOLDS_CONTAINER_SELECTOR, timeout: 5000)
@@ -267,13 +246,13 @@ class LibraryScraper
       return []
     end
 
-    # Selectors for individual hold items and their properties
-    HOLD_ITEM_SELECTOR = '.hold-item, .reservation-item'           # CHANGE THIS
-    HOLD_TITLE_SELECTOR = '.title, .item-title h3'                # CHANGE THIS
-    HOLD_AUTHOR_SELECTOR = '.author, .item-author'                # CHANGE THIS
-    STATUS_SELECTOR = '.status, .hold-status'                     # CHANGE THIS
-    POSITION_SELECTOR = '.position, .queue-position'              # CHANGE THIS (optional)
-    HOLD_THUMBNAIL_SELECTOR = '.cover-image img, .thumbnail img'  # CHANGE THIS
+    # Bibliocommons hold item selectors
+    HOLD_ITEM_SELECTOR = '.holds-item, .cp-batch-actions-item'
+    HOLD_TITLE_SELECTOR = '.title-content a, .cp-title a'
+    HOLD_AUTHOR_SELECTOR = '.cp-author-link, .author-link'
+    STATUS_SELECTOR = '.holds-item-status, .cp-holds-status'
+    POSITION_SELECTOR = '.cp-queue-position, .queue-position'
+    HOLD_THUMBNAIL_SELECTOR = '.cp-jacket-cover img, .jacket-cover img'
 
     hold_items = page.locator(HOLD_ITEM_SELECTOR).all
 
@@ -359,30 +338,26 @@ class LibraryScraper
     return nil unless date_text
 
     # ========================================
-    # CUSTOMIZE DATE PARSING FOR YOUR LIBRARY
+    # BIBLIOCOMMONS DATE PARSING
     # ========================================
-    #
-    # Different libraries format dates differently:
-    # - "Due 12/15/2024"  
+    # Bibliocommons typically uses formats like:
     # - "Dec 15, 2024"
-    # - "15-Dec-24"
-    # - "2024-12-15"
-    #
-    # Add parsing logic below to handle your library's date format.
-    # The goal is to return a standardized ISO 8601 date string.
+    # - "December 15, 2024"  
+    # - "12/15/2024"
     # ========================================
 
-    # Remove common prefixes
-    cleaned_date = date_text.gsub(/^(due|expires?)\s*/i, '').strip
+    # Remove common prefixes and extra text
+    cleaned_date = date_text.gsub(/^(due|expires?|return by)\s*/i, '').strip
+    cleaned_date = cleaned_date.gsub(/\s*(renewal|overdue).*/i, '').strip
 
-    # Try common date formats
+    # Bibliocommons date formats (most common first)
     date_formats = [
-      '%m/%d/%Y',      # 12/15/2024
-      '%m-%d-%Y',      # 12-15-2024  
-      '%Y-%m-%d',      # 2024-12-15
       '%b %d, %Y',     # Dec 15, 2024
+      '%B %d, %Y',     # December 15, 2024
+      '%m/%d/%Y',      # 12/15/2024
+      '%m-%d-%Y',      # 12-15-2024
+      '%Y-%m-%d',      # 2024-12-15
       '%d-%b-%y',      # 15-Dec-24
-      '%B %d, %Y'      # December 15, 2024
     ]
 
     date_formats.each do |format|
@@ -400,7 +375,7 @@ class LibraryScraper
       parsed_date = Date.parse(cleaned_date)
       return parsed_date.iso8601
     rescue Date::Error
-      @logger.warn "Could not parse date: #{date_text}"
+      @logger.warn "Could not parse date: #{date_text} (cleaned: #{cleaned_date})"
       return cleaned_date # Return original if parsing fails
     end
   end
