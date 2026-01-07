@@ -1,0 +1,173 @@
+<% @page_title = "#{@patron_name} - Dewey Library Tracker" %>
+
+<div class="section-header">
+    <h1 class="section-title">📚 <%= @patron_name %>'s Library Activity</h1>
+    <div>
+        <a href="/" style="margin-right: 1rem; color: #667eea; text-decoration: none;">← Back to Family Dashboard</a>
+        <form method="post" action="/refresh" style="display: inline;">
+            <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
+        </form>
+    </div>
+</div>
+
+<% if @data && @data[:stats] %>
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
+            <span class="stat-label">Current Checkouts</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
+            <span class="stat-label">Current Holds</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
+                <%= @data[:stats][:items_due_soon] %>
+            </span>
+            <span class="stat-label">Due Within 3 Days</span>
+        </div>
+    </div>
+<% end %>
+
+<% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>
+    <div class="section-header">
+        <h2 class="section-title">📖 Current Checkouts</h2>
+    </div>
+    
+    <div class="items-grid">
+        <% @data[:checkouts].each do |item| %>
+            <div class="item-card">
+                <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="item-image" loading="lazy">
+                <div class="item-content">
+                    <h3 class="item-title"><%= item['title'] %></h3>
+                    <p class="item-author">by <%= item['author'] || 'Unknown Author' %></p>
+                    <div class="item-meta">
+                        <span class="item-type"><%= item['type'] || 'Book' %></span>
+                        <% if item['renewable'] %>
+                            <span style="color: #388e3c; font-size: 0.8rem;">✓ Renewable</span>
+                        <% end %>
+                    </div>
+                    <div class="item-meta">
+                        <span class="due-date <%= due_date_class(item['due_date']) %>">
+                            Due: <%= format_due_date(item['due_date']) %>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        <% end %>
+    </div>
+<% end %>
+
+<% if @data && @data[:holds] && !@data[:holds].empty? %>
+    <div class="section-header">
+        <h2 class="section-title">📋 Current Holds</h2>
+    </div>
+    
+    <div class="items-grid">
+        <% @data[:holds].each do |item| %>
+            <div class="item-card">
+                <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="item-image" loading="lazy">
+                <div class="item-content">
+                    <h3 class="item-title"><%= item['title'] %></h3>
+                    <p class="item-author">by <%= item['author'] || 'Unknown Author' %></p>
+                    <div class="item-meta">
+                        <span class="hold-status <%= status_class(item['status']) %>">
+                            <%= item['status'] || 'In Queue' %>
+                        </span>
+                    </div>
+                    <% if item['queue_position'] %>
+                        <div class="item-meta">
+                            <span style="color: #666;">Position: #<%= item['queue_position'] %></span>
+                        </div>
+                    <% end %>
+                </div>
+            </div>
+        <% end %>
+    </div>
+<% end %>
+
+<% if (!@data || (@data[:checkouts]&.empty? && @data[:holds]&.empty?)) %>
+    <div class="empty-state">
+        <div class="empty-state-icon">📚</div>
+        <h3><%= @patron_name %> has no current library activity</h3>
+        <p>No current checkouts or holds. Try refreshing to check for recent activity.</p>
+    </div>
+<% end %>
+
+<% if @data && @data[:last_updated] %>
+    <div class="last-updated">
+        Last updated: <%= format_timestamp(@data[:last_updated]) %>
+    </div>
+<% end %>
+
+<%
+def due_date_class(due_date_str)
+  return 'due-normal' unless due_date_str
+  
+  begin
+    due_date = Time.parse(due_date_str)
+    now = Time.now
+    days_until_due = ((due_date - now) / 86400).to_i
+    
+    if days_until_due < 0
+      'due-overdue'
+    elsif days_until_due <= 3
+      'due-soon'
+    else
+      'due-normal'
+    end
+  rescue
+    'due-normal'
+  end
+end
+
+def format_due_date(due_date_str)
+  return 'Unknown' unless due_date_str
+  
+  begin
+    due_date = Time.parse(due_date_str)
+    now = Time.now
+    days_until_due = ((due_date - now) / 86400).to_i
+    
+    formatted_date = due_date.strftime('%b %d')
+    
+    if days_until_due < 0
+      "#{formatted_date} (#{-days_until_due} days overdue)"
+    elsif days_until_due == 0
+      "#{formatted_date} (Today!)"
+    elsif days_until_due == 1
+      "#{formatted_date} (Tomorrow)"
+    elsif days_until_due <= 7
+      "#{formatted_date} (#{days_until_due} days)"
+    else
+      formatted_date
+    end
+  rescue
+    due_date_str
+  end
+end
+
+def status_class(status)
+  return 'status-waiting' unless status
+  
+  status_lower = status.downcase
+  if status_lower.include?('ready') || status_lower.include?('available')
+    'status-ready'
+  elsif status_lower.include?('transit') || status_lower.include?('shipping')
+    'status-transit'
+  else
+    'status-waiting'
+  end
+end
+
+def format_timestamp(timestamp_str)
+  return 'Unknown' unless timestamp_str
+  
+  begin
+    timestamp = Time.parse(timestamp_str)
+    timestamp.strftime('%B %d, %Y at %I:%M %p')
+  rescue
+    timestamp_str
+  end
+end
+%>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= @page_title || 'Dewey Library Tracker' %></title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo::before {
+            content: "📚";
+            margin-right: 10px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .nav-links a:hover {
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        main {
+            padding: 2rem 0;
+            min-height: calc(100vh - 140px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .item-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .item-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .item-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background-color: #f0f0f0;
+        }
+
+        .item-content {
+            padding: 1rem;
+        }
+
+        .item-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .item-author {
+            color: #666;
+            margin-bottom: 0.5rem;
+            font-style: italic;
+        }
+
+        .item-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        .item-type {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .due-date {
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 5px;
+        }
+
+        .due-soon {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .due-overdue {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .due-normal {
+            background: #e8f5e8;
+            color: #388e3c;
+        }
+
+        .hold-status {
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        .status-ready {
+            background: #e8f5e8;
+            color: #388e3c;
+        }
+
+        .status-transit {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status-waiting {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .patron-name {
+            color: #667eea;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 2rem 0 1rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .last-updated {
+            color: #666;
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #eee;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .header-content {
+                text-align: center;
+                gap: 1rem;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+            }
+
+            .nav-links {
+                justify-content: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .items-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 1rem 0;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    Dewey Library Tracker
+                </div>
+                <nav class="nav-links">
+                    <a href="/">Dashboard</a>
+                    <% if @data && @data[:stats] && @data[:stats][:patrons] %>
+                        <% @data[:stats][:patrons].each do |patron| %>
+                            <a href="/patron/<%= ERB::Util.url_encode(patron) %>"><%= patron %></a>
+                        <% end %>
+                    <% end %>
+                    <a href="/api/status">API</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="container">
+            <%= yield %>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Dewey Library Tracker - Keep track of your family's reading journey</p>
+        </div>
+    </footer>
+</body>
+</html>
