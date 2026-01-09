@@ -40,11 +40,19 @@ Optional configuration:
 - `SCRAPE_INTERVAL=1` - Hours between scrapes
 - `LOG_LEVEL=INFO` - Logging level: DEBUG, INFO, WARN, ERROR
 
+## API Endpoints
+
+- `GET /api/status` - All library data (checkouts, holds, stats)
+- `GET /api/patron/:name` - Data for specific patron
+- `GET /api/missing-items` - Missing digital items tracking report
+- `GET /health` - Health check with last scrape time
+- `POST /refresh` - Manual scrape trigger
+
 ## Project Structure
 - `app.rb` - Main Sinatra application
 - `lib/` - Ruby classes and modules
 - `views/` - ERB templates
-- `data/` - JSON data files and thumbnails
+- `data/` - JSON data files, thumbnails, and tracking logs
 - `config/` - Configuration files
 - `.github/workflows/` - GitHub Actions for CI/CD
 

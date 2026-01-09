@@ -1,7 +1,7 @@
-require 'playwright'
-require 'httparty'
-require 'digest'
-require 'uri'
+require "playwright"
+require "httparty"
+require "digest"
+require "uri"
 
 class LibraryScraper
   # Bibliocommons CSS selectors for Lawrence Public Library
@@ -9,56 +9,54 @@ class LibraryScraper
   USERNAME_SELECTOR = 'input[name="name"]'
   PASSWORD_SELECTOR = 'input[name="user_pin"]'
   LOGIN_BUTTON_SELECTOR = 'input[type="submit"][name="commit"]'
-  LOGIN_SUCCESS_SELECTOR = '.dropdown-menu-user, .user-display-name, .header-user-menu'
-  
-  CHECKOUTS_PAGE_PATH = '/v2/checkedout'
-  CHECKOUTS_CONTAINER_SELECTOR = '.cp-batch-actions-list'
-  CHECKOUT_ITEM_SELECTOR = '.batch-actions-list-item-details'
-  TITLE_SELECTOR = '.cp-title .title-content'
-  AUTHOR_SELECTOR = '.cp-author-link a'
-  DUE_DATE_SELECTOR = '.cp-short-formatted-date'
-  TYPE_SELECTOR = '.display-info-primary'
-  THUMBNAIL_SELECTOR = '.jacket-cover-container img'
-  RENEWABLE_SELECTOR = '.cp-batch-renew-checkbox'
-  STATUS_SELECTOR = '.status-name'
-  
-  HOLDS_PAGE_PATH = '/v2/holds'
-  HOLDS_CONTAINER_SELECTOR = '.cp-batch-actions-list'
-  HOLD_ITEM_SELECTOR = '.batch-actions-list-item-details'
+  LOGIN_SUCCESS_SELECTOR = ".dropdown-menu-user, .user-display-name, .header-user-menu"
+
+  CHECKOUTS_PAGE_PATH = "/v2/checkedout"
+  CHECKOUTS_CONTAINER_SELECTOR = ".cp-batch-actions-list"
+  CHECKOUT_ITEM_SELECTOR = ".batch-actions-list-item-details"
+  TITLE_SELECTOR = ".cp-title .title-content"
+  AUTHOR_SELECTOR = ".cp-author-link a"
+  DUE_DATE_SELECTOR = ".cp-short-formatted-date"
+  TYPE_SELECTOR = ".display-info-primary"
+  THUMBNAIL_SELECTOR = ".jacket-cover-container img"
+  RENEWABLE_SELECTOR = ".cp-batch-renew-checkbox"
+  STATUS_SELECTOR = ".status-name"
+
+  HOLDS_PAGE_PATH = "/v2/holds"
+  HOLDS_CONTAINER_SELECTOR = ".cp-batch-actions-list"
+  HOLD_ITEM_SELECTOR = ".batch-actions-list-item-details"
   # Note: Holds use the same title/author selectors as checkouts
-  HOLD_TITLE_SELECTOR = '.title-content'
-  HOLD_AUTHOR_SELECTOR = '.author-link'
-  HOLD_STATUS_SELECTOR = '.status-name'
-  POSITION_SELECTOR = '.cp-hold-position'
-  HOLD_THUMBNAIL_SELECTOR = '.jacket-cover-container img'
-  
+  HOLD_TITLE_SELECTOR = ".title-content"
+  HOLD_AUTHOR_SELECTOR = ".author-link"
+  HOLD_STATUS_SELECTOR = ".status-name"
+  POSITION_SELECTOR = ".cp-hold-position"
+  HOLD_THUMBNAIL_SELECTOR = ".jacket-cover-container img"
+
   # Pagination selectors for Bibliocommons
-  PAGINATION_ITEM_SELECTOR = 'a.pagination-item__link[data-page]'
+  PAGINATION_ITEM_SELECTOR = "a.pagination-item__link[data-page]"
   NEXT_BUTTON_SELECTOR = 'button[aria-label*="next" i]:not([disabled])'
-  PAGINATION_SELECTOR = '.cp-pagination-item'  # Legacy fallback
+  PAGINATION_SELECTOR = ".cp-pagination-item"  # Legacy fallback
 
   def initialize(data_store, logger)
     @data_store = data_store
     @logger = logger
-    @headless = ENV.fetch('PLAYWRIGHT_HEADLESS', 'true') == 'true'
+    @headless = ENV.fetch("PLAYWRIGHT_HEADLESS", "true") == "true"
   end
 
   def scrape_all_patrons
     patrons = get_patron_configs
-    
+
     if patrons.empty?
       @logger.warn "No patron configurations found. Check environment variables."
       return
     end
 
     patrons.each do |patron|
-      begin
-        @logger.info "Starting scrape for patron: #{patron[:name]}"
-        scrape_patron(patron)
-      rescue => e
-        @logger.error "Failed to scrape patron #{patron[:name]}: #{e.message}"
-        @data_store.log_scrape_attempt(patron[:name], false, {}, e.message)
-      end
+      @logger.info "Starting scrape for patron: #{patron[:name]}"
+      scrape_patron(patron)
+    rescue => e
+      @logger.error "Failed to scrape patron #{patron[:name]}: #{e.message}"
+      @data_store.log_scrape_attempt(patron[:name], false, {}, e.message)
     end
   end
 
@@ -67,7 +65,7 @@ class LibraryScraper
   def get_patron_configs
     patrons = []
     i = 1
-    
+
     while ENV["PATRON_#{i}_NAME"]
       patrons << {
         name: ENV["PATRON_#{i}_NAME"],
@@ -76,7 +74,7 @@ class LibraryScraper
       }
       i += 1
     end
-    
+
     patrons
   end
 
@@ -86,7 +84,7 @@ class LibraryScraper
     @logger.info "█ STARTING FULL SCRAPE FOR PATRON: #{patron[:name]}"
     @logger.info "█" * 80
 
-    Playwright.create(playwright_cli_executable_path: 'npx playwright') do |playwright|
+    Playwright.create(playwright_cli_executable_path: "npx playwright") do |playwright|
       browser = playwright.chromium.launch(headless: @headless)
       context = browser.new_context
       page = context.new_page
@@ -109,8 +107,8 @@ class LibraryScraper
         all_holds = @data_store.get_holds
 
         # Remove old data for this patron and add new data
-        all_checkouts.reject! { |item| item['patron_name'] == patron[:name] }
-        all_holds.reject! { |item| item['patron_name'] == patron[:name] }
+        all_checkouts.reject! { |item| item["patron_name"] == patron[:name] }
+        all_holds.reject! { |item| item["patron_name"] == patron[:name] }
 
         all_checkouts.concat(checkouts)
         all_holds.concat(holds)
@@ -141,7 +139,6 @@ class LibraryScraper
         @logger.info "█ Checkouts: #{checkouts.length} | Holds: #{holds.length} | Missing: #{missing_items.length}"
         @logger.info "█ Total time: #{format_duration(patron_elapsed)}"
         @logger.info "█" * 80
-
       ensure
         browser.close
       end
@@ -149,7 +146,7 @@ class LibraryScraper
   end
 
   def login_to_library(page, patron)
-    library_url = ENV['LIBRARY_URL']
+    library_url = ENV["LIBRARY_URL"]
     raise "LIBRARY_URL environment variable not set" unless library_url
 
     # Navigate directly to the login page instead of clicking through
@@ -159,63 +156,77 @@ class LibraryScraper
 
     # Wait a moment for the login form to load
     sleep(2)
-    
+
     # Debug: Log the current page title and URL to see where we are
     @logger.debug "Current page title: #{page.title}"
     @logger.debug "Current URL: #{page.url}"
-    
+
     # Debug: Get all input fields on the page
-    inputs = page.locator('input').all
+    inputs = page.locator("input").all
     @logger.debug "Found #{inputs.length} input fields on the page"
     inputs.each_with_index do |input, index|
-      input_type = input.get_attribute('type') rescue 'unknown'
-      input_name = input.get_attribute('name') rescue 'unknown' 
-      input_id = input.get_attribute('id') rescue 'unknown'
-      input_placeholder = input.get_attribute('placeholder') rescue 'unknown'
+      input_type = begin
+        input.get_attribute("type")
+      rescue
+        "unknown"
+      end
+      input_name = begin
+        input.get_attribute("name")
+      rescue
+        "unknown"
+      end
+      input_id = begin
+        input.get_attribute("id")
+      rescue
+        "unknown"
+      end
+      input_placeholder = begin
+        input.get_attribute("placeholder")
+      rescue
+        "unknown"
+      end
       @logger.debug "Input #{index + 1}: type=#{input_type}, name=#{input_name}, id=#{input_id}, placeholder=#{input_placeholder}"
     end
-    
+
     # Wait for login form to appear and find username field
     @logger.debug "Looking for username field"
-    
+
     username_selectors = [
       'input[name="name"]',
       'input[type="text"]',
-      '#user_name',
-      '#name', 
+      "#user_name",
+      "#name",
       'input[name="user_name"]'
     ]
-    
+
     username_field = nil
     username_selectors.each do |selector|
-      begin
-        @logger.debug "Trying username selector: #{selector}"
-        page.wait_for_selector(selector, timeout: 3000)
-        username_field = selector
-        @logger.debug "Found username field with selector: #{selector}"
-        break
-      rescue Playwright::TimeoutError
-        @logger.debug "Username selector #{selector} not found, trying next..."
-        next
-      end
+      @logger.debug "Trying username selector: #{selector}"
+      page.wait_for_selector(selector, timeout: 3000)
+      username_field = selector
+      @logger.debug "Found username field with selector: #{selector}"
+      break
+    rescue Playwright::TimeoutError
+      @logger.debug "Username selector #{selector} not found, trying next..."
+      next
     end
-    
+
     unless username_field
       raise "Could not find username field with any of the attempted selectors"
     end
-    
+
     # Fill in credentials
     @logger.debug "Filling in login credentials"
     page.fill(username_field, patron[:username])
     page.fill(PASSWORD_SELECTOR, patron[:password])
-    
+
     # Submit login form
     @logger.debug "Submitting login form"
     page.click(LOGIN_BUTTON_SELECTOR)
-    
+
     # Wait for login to complete - check if we're redirected away from login page
     @logger.debug "Waiting for login to complete..."
-    
+
     begin
       # Wait for page to navigate away from login page (indicates successful login)
       page.wait_for_url(/^(?!.*\/user\/login).*/, timeout: 15000)
@@ -224,7 +235,7 @@ class LibraryScraper
     rescue Playwright::TimeoutError
       current_url = page.url
       @logger.debug "Current URL after login attempt: #{current_url}"
-      if current_url.include?('/user/login')
+      if current_url.include?("/user/login")
         raise "Login failed - still on login page. Check credentials."
       else
         @logger.debug "Login appears successful but timeout waiting for redirect"
@@ -239,7 +250,7 @@ class LibraryScraper
     @logger.info "=" * 80
 
     # Navigate to checkouts page
-    checkout_url = ENV['LIBRARY_URL'] + CHECKOUTS_PAGE_PATH
+    checkout_url = ENV["LIBRARY_URL"] + CHECKOUTS_PAGE_PATH
     @logger.debug "Navigating to checkouts page: #{checkout_url}"
     page.goto(checkout_url)
 
@@ -277,17 +288,17 @@ class LibraryScraper
           @logger.info "Processing checkout item #{item_number} (page #{current_page}, item #{index + 1}/#{checkout_items.length})..."
 
           # Use the precise selectors identified from the HTML structure
-          title = extract_text_with_fallback(item, [TITLE_SELECTOR, '.title-content', '.cp-title a'])
-          author = extract_text_with_fallback(item, [AUTHOR_SELECTOR, '.cp-author-link', '.author-link'])
+          title = extract_text_with_fallback(item, [TITLE_SELECTOR, ".title-content", ".cp-title a"])
+          author = extract_text_with_fallback(item, [AUTHOR_SELECTOR, ".cp-author-link", ".author-link"])
           due_date = extract_text_with_fallback(item, [DUE_DATE_SELECTOR])
 
           # Extract and normalize item type (remove year info like "eBook, 2025" -> "eBook")
-          raw_type = extract_text_with_fallback(item, [TYPE_SELECTOR]) || 'Book'
+          raw_type = extract_text_with_fallback(item, [TYPE_SELECTOR]) || "Book"
           item_type = normalize_item_type(raw_type)
 
           item_elapsed = Time.now - item_start_time
-          @logger.info "  ✓ #{item_type}: '#{title}' by #{author || '(no author)'} - due #{due_date} (#{format_duration(item_elapsed)})"
-          
+          @logger.info "  ✓ #{item_type}: '#{title}' by #{author || "(no author)"} - due #{due_date} (#{format_duration(item_elapsed)})"
+
           # Check if item is renewable (this selector might not exist on all library systems)
           renewable = begin
             item.locator(RENEWABLE_SELECTOR).count > 0
@@ -298,7 +309,7 @@ class LibraryScraper
           # Get thumbnail URL if available
           thumbnail_url = begin
             img = item.locator(THUMBNAIL_SELECTOR).first
-            img.get_attribute('src') if img
+            img.get_attribute("src") if img
           rescue
             nil
           end
@@ -313,18 +324,17 @@ class LibraryScraper
           end
 
           checkout = {
-            'title' => title,
-            'author' => author,
-            'due_date' => parse_due_date(due_date),
-            'type' => item_type,
-            'renewable' => renewable,
-            'patron_name' => patron_name,
-            'thumbnail_url' => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : '/placeholder.jpg',
-            'item_id' => item_id
+            "title" => title,
+            "author" => author,
+            "due_date" => parse_due_date(due_date),
+            "type" => item_type,
+            "renewable" => renewable,
+            "patron_name" => patron_name,
+            "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
+            "item_id" => item_id
           }
 
           page_checkouts << checkout if title && !title.empty?
-
         rescue => e
           item_elapsed = Time.now - item_start_time
           @logger.warn "  ✗ Failed to parse checkout item #{item_number}: #{e.message} (#{format_duration(item_elapsed)})"
@@ -352,7 +362,7 @@ class LibraryScraper
     end
 
     overall_elapsed = Time.now - overall_start_time
-    avg_time_per_item = all_checkouts.length > 0 ? overall_elapsed / all_checkouts.length : 0
+    avg_time_per_item = (all_checkouts.length > 0) ? overall_elapsed / all_checkouts.length : 0
 
     @logger.info "\n" + "=" * 80
     @logger.info "Checkout scrape complete for #{patron_name}"
@@ -371,7 +381,7 @@ class LibraryScraper
     @logger.info "=" * 80
 
     # Navigate to holds page
-    holds_url = ENV['LIBRARY_URL'] + HOLDS_PAGE_PATH
+    holds_url = ENV["LIBRARY_URL"] + HOLDS_PAGE_PATH
     @logger.debug "Navigating to holds page: #{holds_url}"
     page.goto(holds_url)
 
@@ -409,8 +419,8 @@ class LibraryScraper
           @logger.info "Processing hold item #{item_number} (page #{current_page}, item #{index + 1}/#{hold_items.length})..."
 
           # Extract title, author, and status using correct selectors
-          title = extract_text_with_fallback(item, [HOLD_TITLE_SELECTOR, TITLE_SELECTOR, '.cp-title a'])
-          author = extract_text_with_fallback(item, [HOLD_AUTHOR_SELECTOR, '.cp-author-link a'])
+          title = extract_text_with_fallback(item, [HOLD_TITLE_SELECTOR, TITLE_SELECTOR, ".cp-title a"])
+          author = extract_text_with_fallback(item, [HOLD_AUTHOR_SELECTOR, ".cp-author-link a"])
           status = extract_text_with_fallback(item, [HOLD_STATUS_SELECTOR])
 
           # Get queue position if available
@@ -426,8 +436,6 @@ class LibraryScraper
               else
                 nil  # Empty position (hold is ready)
               end
-            else
-              nil
             end
           rescue => e
             @logger.debug "    Could not extract position: #{e.message}"
@@ -437,7 +445,7 @@ class LibraryScraper
           # Get thumbnail URL if available
           thumbnail_url = begin
             img = item.locator(HOLD_THUMBNAIL_SELECTOR).first
-            img.get_attribute('src') if img
+            img.get_attribute("src") if img
           rescue
             nil
           end
@@ -452,21 +460,20 @@ class LibraryScraper
           end
 
           hold = {
-            'title' => title,
-            'author' => author,
-            'status' => status,
-            'queue_position' => position,
-            'patron_name' => patron_name,
-            'thumbnail_url' => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : '/placeholder.jpg',
-            'item_id' => item_id
+            "title" => title,
+            "author" => author,
+            "status" => status,
+            "queue_position" => position,
+            "patron_name" => patron_name,
+            "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
+            "item_id" => item_id
           }
 
           page_holds << hold if title && !title.empty?
 
           item_elapsed = Time.now - item_start_time
           position_text = position ? " (position #{position})" : ""
-          @logger.info "  ✓ '#{title}' by #{author || '(no author)'} - #{status}#{position_text} (#{format_duration(item_elapsed)})"
-
+          @logger.info "  ✓ '#{title}' by #{author || "(no author)"} - #{status}#{position_text} (#{format_duration(item_elapsed)})"
         rescue => e
           item_elapsed = Time.now - item_start_time
           @logger.warn "  ✗ Failed to parse hold item #{item_number}: #{e.message} (#{format_duration(item_elapsed)})"
@@ -494,7 +501,7 @@ class LibraryScraper
     end
 
     overall_elapsed = Time.now - overall_start_time
-    avg_time_per_item = all_holds.length > 0 ? overall_elapsed / all_holds.length : 0
+    avg_time_per_item = (all_holds.length > 0) ? overall_elapsed / all_holds.length : 0
 
     @logger.info "\n" + "=" * 80
     @logger.info "Holds scrape complete for #{patron_name}"
@@ -517,11 +524,11 @@ class LibraryScraper
 
     begin
       # Handle relative URLs
-      url = URI.join(ENV['LIBRARY_URL'], url).to_s unless url.start_with?('http')
-      
+      url = URI.join(ENV["LIBRARY_URL"], url).to_s unless url.start_with?("http")
+
       @logger.debug "Downloading thumbnail: #{url}"
       response = HTTParty.get(url, timeout: 10)
-      
+
       if response.success? && response.body.length > 0
         @data_store.save_thumbnail(item_id, response.body)
         @logger.debug "Saved thumbnail for item #{item_id}"
@@ -533,18 +540,16 @@ class LibraryScraper
 
   def extract_text_with_fallback(item, selectors)
     selectors.each do |selector|
-      begin
-        element = item.locator(selector)
-        # Check if element exists first (fast operation)
-        if element.count > 0
-          # Element exists, get its text with a short timeout
-          text = element.text_content(timeout: 1000)&.strip
-          return text if text && !text.empty?
-        end
-      rescue => e
-        @logger.debug "Selector '#{selector}' failed: #{e.message}"
-        next
+      element = item.locator(selector)
+      # Check if element exists first (fast operation)
+      if element.count > 0
+        # Element exists, get its text with a short timeout
+        text = element.text_content(timeout: 1000)&.strip
+        return text if text && !text.empty?
       end
+    rescue => e
+      @logger.debug "Selector '#{selector}' failed: #{e.message}"
+      next
     end
 
     @logger.debug "All selectors failed for item, returning nil"
@@ -553,153 +558,137 @@ class LibraryScraper
 
   def extract_text_by_content_search(item, search_patterns, field_name)
     search_patterns.each do |pattern|
-      begin
-        # Find elements that contain the specific text pattern
-        matching_elements = item.locator(":has-text('#{pattern}')").all
-        @logger.debug "Found #{matching_elements.length} elements containing '#{pattern}' for #{field_name}"
-        
-        matching_elements.each do |element|
-          text = element.text_content&.strip
-          if text && !text.empty?
-            @logger.debug "#{field_name} candidate text: '#{text}'"
-            return text
-          end
+      # Find elements that contain the specific text pattern
+      matching_elements = item.locator(":has-text('#{pattern}')").all
+      @logger.debug "Found #{matching_elements.length} elements containing '#{pattern}' for #{field_name}"
+
+      matching_elements.each do |element|
+        text = element.text_content&.strip
+        if text && !text.empty?
+          @logger.debug "#{field_name} candidate text: '#{text}'"
+          return text
         end
-      rescue => e
-        @logger.debug "Content search for '#{pattern}' failed: #{e.message}"
-        next
       end
+    rescue => e
+      @logger.debug "Content search for '#{pattern}' failed: #{e.message}"
+      next
     end
-    
+
     @logger.debug "No content found for #{field_name} with patterns: #{search_patterns}"
     nil
   end
 
   def extract_longest_text_element(item, field_name)
-    begin
-      # Get all text-containing elements and find the longest meaningful one (likely the title)
-      all_elements = item.locator('*').all
-      longest_text = ""
-      
-      all_elements.each do |element|
-        begin
-          text = element.text_content&.strip
-          # Skip empty text and very short text (likely labels)
-          # Look for text that seems like a title (longer than 10 chars, not just numbers/dates)
-          if text && text.length > 10 && text.length > longest_text.length && 
-             !text.match(/^\d+$/) && !text.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/) &&
-             !text.include?('remaining') && !text.include?('days') && !text.include?('Due')
-            longest_text = text
-            @logger.debug "#{field_name} candidate (longer): '#{text[0..50]}...'"
-          end
-        rescue => e
-          next
-        end
+    # Get all text-containing elements and find the longest meaningful one (likely the title)
+    all_elements = item.locator("*").all
+    longest_text = ""
+
+    all_elements.each do |element|
+      text = element.text_content&.strip
+      # Skip empty text and very short text (likely labels)
+      # Look for text that seems like a title (longer than 10 chars, not just numbers/dates)
+      if text && text.length > 10 && text.length > longest_text.length &&
+          !text.match(/^\d+$/) && !text.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/) &&
+          !text.include?("remaining") && !text.include?("days") && !text.include?("Due")
+        longest_text = text
+        @logger.debug "#{field_name} candidate (longer): '#{text[0..50]}...'"
       end
-      
-      return longest_text.empty? ? nil : longest_text
-    rescue => e
-      @logger.debug "Error extracting longest text for #{field_name}: #{e.message}"
-      nil
+    rescue
+      next
     end
+
+    longest_text.empty? ? nil : longest_text
+  rescue => e
+    @logger.debug "Error extracting longest text for #{field_name}: #{e.message}"
+    nil
   end
 
   def extract_author_text_element(item, field_name)
-    begin
-      # Look for text patterns that indicate author names (Last, First format is common)
-      all_elements = item.locator('*').all
-      
-      all_elements.each do |element|
-        begin
-          text = element.text_content&.strip
-          # Look for author patterns: "Last, First" or contains common author indicators
-          if text && text.length > 3 && text.length < 100 &&
-             (text.include?(', ') && text.match(/^[A-Z][a-z]+(, [A-Z][a-z]+)?/)) || 
-             text.match(/^[A-Z][a-z]+ [A-Z][a-z]+$/)
-            @logger.debug "#{field_name} candidate: '#{text}'"
-            return text
-          end
-        rescue => e
-          next
-        end
+    # Look for text patterns that indicate author names (Last, First format is common)
+    all_elements = item.locator("*").all
+
+    all_elements.each do |element|
+      text = element.text_content&.strip
+      # Look for author patterns: "Last, First" or contains common author indicators
+      if text && text.length > 3 && text.length < 100 &&
+          text.include?(", ") && text.match(/^[A-Z][a-z]+(, [A-Z][a-z]+)?/) ||
+          text.match(/^[A-Z][a-z]+ [A-Z][a-z]+$/)
+        @logger.debug "#{field_name} candidate: '#{text}'"
+        return text
       end
-      
-      @logger.debug "No author pattern found for #{field_name}"
-      nil
-    rescue => e
-      @logger.debug "Error extracting author for #{field_name}: #{e.message}"
-      nil
+    rescue
+      next
     end
+
+    @logger.debug "No author pattern found for #{field_name}"
+    nil
+  rescue => e
+    @logger.debug "Error extracting author for #{field_name}: #{e.message}"
+    nil
   end
 
   def has_next_page?(page, current_page)
     # Check for pagination controls and determine if there's a next page
-    begin
-      # Method 1: Check for enabled "Next" button (most reliable)
-      next_button = page.locator(NEXT_BUTTON_SELECTOR)
-      if next_button.count > 0
-        @logger.debug "Found enabled 'Next' button, has next page"
-        return true
-      end
 
-      # Method 2: Check data-page attributes for pages greater than current
-      page_links = page.locator(PAGINATION_ITEM_SELECTOR).all
-      @logger.debug "Found #{page_links.length} pagination page links"
-
-      page_links.each do |link|
-        begin
-          data_page = link.get_attribute('data-page')
-          if data_page
-            page_num = data_page.to_i
-            @logger.debug "  Page link: data-page=#{page_num}"
-            if page_num > current_page
-              @logger.debug "Found page #{page_num} > current page #{current_page}, has next page"
-              return true
-            end
-          end
-        rescue => e
-          @logger.debug "Error checking page link: #{e.message}"
-          next
-        end
-      end
-
-      # Method 3: Legacy fallback - check old selector
-      pagination_items = page.locator(PAGINATION_SELECTOR).all
-      if pagination_items.length > 0
-        @logger.debug "Using legacy pagination selector, found #{pagination_items.length} items"
-
-        pagination_items.each do |item|
-          begin
-            text = item.text_content&.strip&.downcase
-
-            # Check for "Next" button
-            if text&.include?('next') || text&.include?('>')
-              @logger.debug "Found 'Next' button via legacy selector, has next page"
-              return true
-            end
-
-            # Check for page numbers greater than current page
-            if text&.match(/^\d+$/)
-              page_num = text.to_i
-              if page_num > current_page
-                @logger.debug "Found page #{page_num} > current page #{current_page} via legacy selector"
-                return true
-              end
-            end
-          rescue => e
-            @logger.debug "Error checking legacy pagination item: #{e.message}"
-            next
-          end
-        end
-      end
-
-      @logger.debug "No next page found in pagination controls"
-      return false
-
-    rescue => e
-      @logger.warn "Error checking for next page: #{e.message}"
-      return false
+    # Method 1: Check for enabled "Next" button (most reliable)
+    next_button = page.locator(NEXT_BUTTON_SELECTOR)
+    if next_button.count > 0
+      @logger.debug "Found enabled 'Next' button, has next page"
+      return true
     end
+
+    # Method 2: Check data-page attributes for pages greater than current
+    page_links = page.locator(PAGINATION_ITEM_SELECTOR).all
+    @logger.debug "Found #{page_links.length} pagination page links"
+
+    page_links.each do |link|
+      data_page = link.get_attribute("data-page")
+      if data_page
+        page_num = data_page.to_i
+        @logger.debug "  Page link: data-page=#{page_num}"
+        if page_num > current_page
+          @logger.debug "Found page #{page_num} > current page #{current_page}, has next page"
+          return true
+        end
+      end
+    rescue => e
+      @logger.debug "Error checking page link: #{e.message}"
+      next
+    end
+
+    # Method 3: Legacy fallback - check old selector
+    pagination_items = page.locator(PAGINATION_SELECTOR).all
+    if pagination_items.length > 0
+      @logger.debug "Using legacy pagination selector, found #{pagination_items.length} items"
+
+      pagination_items.each do |item|
+        text = item.text_content&.strip&.downcase
+
+        # Check for "Next" button
+        if text&.include?("next") || text&.include?(">")
+          @logger.debug "Found 'Next' button via legacy selector, has next page"
+          return true
+        end
+
+        # Check for page numbers greater than current page
+        if text&.match(/^\d+$/)
+          page_num = text.to_i
+          if page_num > current_page
+            @logger.debug "Found page #{page_num} > current page #{current_page} via legacy selector"
+            return true
+          end
+        end
+      rescue => e
+        @logger.debug "Error checking legacy pagination item: #{e.message}"
+        next
+      end
+    end
+
+    @logger.debug "No next page found in pagination controls"
+    false
+  rescue => e
+    @logger.warn "Error checking for next page: #{e.message}"
+    false
   end
 
   def parse_due_date(date_text)
@@ -715,41 +704,39 @@ class LibraryScraper
     # ========================================
 
     # Remove common prefixes and extra text
-    cleaned_date = date_text.gsub(/^(due|expires?|return by)\s*/i, '').strip
-    cleaned_date = cleaned_date.gsub(/\s*(renewal|overdue).*/i, '').strip
+    cleaned_date = date_text.gsub(/^(due|expires?|return by)\s*/i, "").strip
+    cleaned_date = cleaned_date.gsub(/\s*(renewal|overdue).*/i, "").strip
 
     # Bibliocommons date formats (most common first)
     date_formats = [
-      '%b %d, %Y',     # Dec 15, 2024
-      '%B %d, %Y',     # December 15, 2024
-      '%m/%d/%Y',      # 12/15/2024
-      '%m-%d-%Y',      # 12-15-2024
-      '%Y-%m-%d',      # 2024-12-15
-      '%d-%b-%y',      # 15-Dec-24
+      "%b %d, %Y",     # Dec 15, 2024
+      "%B %d, %Y",     # December 15, 2024
+      "%m/%d/%Y",      # 12/15/2024
+      "%m-%d-%Y",      # 12-15-2024
+      "%Y-%m-%d",      # 2024-12-15
+      "%d-%b-%y"      # 15-Dec-24
     ]
 
     date_formats.each do |format|
-      begin
-        parsed_date = Date.strptime(cleaned_date, format)
-        return parsed_date.iso8601
-      rescue Date::Error
-        next
-      end
+      parsed_date = Date.strptime(cleaned_date, format)
+      return parsed_date.iso8601
+    rescue Date::Error
+      next
     end
 
     # If no format worked, try natural language parsing
     begin
-      require 'date'
+      require "date"
       parsed_date = Date.parse(cleaned_date)
-      return parsed_date.iso8601
+      parsed_date.iso8601
     rescue Date::Error
       @logger.warn "Could not parse date: #{date_text} (cleaned: #{cleaned_date})"
-      return cleaned_date # Return original if parsing fails
+      cleaned_date # Return original if parsing fails
     end
   end
 
   def normalize_item_type(raw_type)
-    return 'Book' unless raw_type
+    return "Book" unless raw_type
 
     # ========================================
     # MEDIA TYPE NORMALIZATION
@@ -764,10 +751,10 @@ class LibraryScraper
     # ========================================
 
     # Extract media type (everything before the first comma)
-    media_type = raw_type.split(',').first&.strip
+    media_type = raw_type.split(",").first&.strip
 
     # Return normalized type or default to original if parsing fails
-    media_type && !media_type.empty? ? media_type : raw_type
+    (media_type && !media_type.empty?) ? media_type : raw_type
   end
 
   def format_duration(seconds)

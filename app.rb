@@ -1,43 +1,44 @@
-require 'sinatra'
-require 'sinatra/json'
-require 'rufus-scheduler'
-require 'json'
-require 'logger'
-require_relative 'lib/data_store'
-require_relative 'lib/library_scraper'
+require "dotenv/load"
+require "sinatra"
+require "sinatra/json"
+require "rufus-scheduler"
+require "json"
+require "logger"
+require_relative "lib/data_store"
+require_relative "lib/library_scraper"
 
 class DeweyApp < Sinatra::Base
   configure do
-    set :public_folder, 'public'
-    set :views, 'views'
+    set :public_folder, "public"
+    set :views, "views"
     enable :logging
-    
+
     # Set up logger
     logger = Logger.new(STDOUT)
-    logger.level = case ENV['LOG_LEVEL']&.upcase
-                   when 'DEBUG' then Logger::DEBUG
-                   when 'WARN' then Logger::WARN
-                   when 'ERROR' then Logger::ERROR
-                   else Logger::INFO
-                   end
+    logger.level = case ENV["LOG_LEVEL"]&.upcase
+    when "DEBUG" then Logger::DEBUG
+    when "WARN" then Logger::WARN
+    when "ERROR" then Logger::ERROR
+    else Logger::INFO
+    end
     set :logger, logger
   end
 
   def initialize(app = nil)
-    super(app)
-    @data_store = DataStore.new('data')
+    super
+    @data_store = DataStore.new("data")
     @scraper = LibraryScraper.new(@data_store, settings.logger)
     start_scheduler
     run_initial_scrape
   end
 
   # Web Dashboard Routes
-  get '/' do
+  get "/" do
     @data = @data_store.get_all_data
     erb :dashboard
   end
 
-  get '/patron/:name' do
+  get "/patron/:name" do
     patron_name = params[:name]
     @data = @data_store.get_patron_data(patron_name)
     @patron_name = patron_name
@@ -45,56 +46,63 @@ class DeweyApp < Sinatra::Base
   end
 
   # Thumbnail serving
-  get '/thumbnails/:filename' do
+  get "/thumbnails/:filename" do
     filename = params[:filename]
-    file_path = File.join('data', 'thumbnails', filename)
-    
+    file_path = File.join("data", "thumbnails", filename)
+
     if File.exist?(file_path)
-      content_type 'image/jpeg'
+      content_type "image/jpeg"
       send_file file_path
     else
-      send_file 'public/placeholder.jpg'
+      send_file "public/placeholder.jpg"
     end
   end
 
   # API Routes for Home Assistant
-  get '/api/status' do
+  get "/api/status" do
     json @data_store.get_all_data
   end
 
-  get '/api/patron/:name' do
+  get "/api/patron/:name" do
     json @data_store.get_patron_data(params[:name])
   end
 
-  get '/health' do
+  get "/api/missing-items" do
     json({
-      status: 'ok',
+      missing_items_events: @data_store.get_missing_items_report,
+      total_events: @data_store.get_missing_items_report.length
+    })
+  end
+
+  get "/health" do
+    json({
+      status: "ok",
       timestamp: Time.now.iso8601,
       last_scrape: @data_store.get_last_scrape_time
     })
   end
 
   # Manual refresh endpoint
-  post '/refresh' do
+  post "/refresh" do
     Thread.new do
       @scraper.scrape_all_patrons
     end
-    redirect '/'
+    redirect "/"
   end
 
   private
 
   def start_scheduler
     scheduler = Rufus::Scheduler.new
-    interval = ENV.fetch('SCRAPE_INTERVAL', '1').to_i
-    
+    interval = ENV.fetch("SCRAPE_INTERVAL", "1").to_i
+
     scheduler.every "#{interval}h" do
       settings.logger.info "Starting scheduled scrape"
       @scraper.scrape_all_patrons
     end
-    
+
     # Also run every day at 6 AM to catch any overnight changes
-    scheduler.cron '0 6 * * *' do
+    scheduler.cron "0 6 * * *" do
       settings.logger.info "Starting daily 6 AM scrape"
       @scraper.scrape_all_patrons
     end

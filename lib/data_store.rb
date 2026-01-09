@@ -1,11 +1,11 @@
-require 'json'
-require 'fileutils'
-require 'time'
+require "json"
+require "fileutils"
+require "time"
 
 class DataStore
   attr_reader :data_dir
 
-  def initialize(data_dir = 'data')
+  def initialize(data_dir = "data")
     @data_dir = data_dir
     ensure_data_directory
     ensure_thumbnail_directory
@@ -17,7 +17,7 @@ class DataStore
       checkouts: checkouts,
       last_updated: Time.now.iso8601
     }
-    write_json_file('checkouts.json', data)
+    write_json_file("checkouts.json", data)
   end
 
   def save_holds(holds)
@@ -25,35 +25,35 @@ class DataStore
       holds: holds,
       last_updated: Time.now.iso8601
     }
-    write_json_file('holds.json', data)
+    write_json_file("holds.json", data)
   end
 
   def get_checkouts
-    read_json_file('checkouts.json')&.dig('checkouts') || []
+    read_json_file("checkouts.json")&.dig("checkouts") || []
   end
 
   def get_holds
-    read_json_file('holds.json')&.dig('holds') || []
+    read_json_file("holds.json")&.dig("holds") || []
   end
 
   def get_all_data
-    checkouts_data = read_json_file('checkouts.json') || {}
-    holds_data = read_json_file('holds.json') || {}
-    
+    checkouts_data = read_json_file("checkouts.json") || {}
+    holds_data = read_json_file("holds.json") || {}
+
     {
-      checkouts: checkouts_data['checkouts'] || [],
-      holds: holds_data['holds'] || [],
-      stats: calculate_stats(checkouts_data['checkouts'] || [], holds_data['holds'] || []),
-      last_updated: [checkouts_data['last_updated'], holds_data['last_updated']].compact.max
+      checkouts: checkouts_data["checkouts"] || [],
+      holds: holds_data["holds"] || [],
+      stats: calculate_stats(checkouts_data["checkouts"] || [], holds_data["holds"] || []),
+      last_updated: [checkouts_data["last_updated"], holds_data["last_updated"]].compact.max
     }
   end
 
   def get_patron_data(patron_name)
     all_data = get_all_data
-    
-    checkouts = all_data[:checkouts].select { |item| item['patron_name'] == patron_name }
-    holds = all_data[:holds].select { |item| item['patron_name'] == patron_name }
-    
+
+    checkouts = all_data[:checkouts].select { |item| item["patron_name"] == patron_name }
+    holds = all_data[:holds].select { |item| item["patron_name"] == patron_name }
+
     {
       checkouts: checkouts,
       holds: holds,
@@ -72,25 +72,113 @@ class DataStore
       error_message: error_message
     }
 
-    log_data = read_json_file('scrape_log.json') || { 'scrapes' => [] }
-    log_data['scrapes'] << log_entry
-    
+    log_data = read_json_file("scrape_log.json") || {"scrapes" => []}
+    log_data["scrapes"] << log_entry
+
     # Keep only last 100 log entries
-    log_data['scrapes'] = log_data['scrapes'].last(100)
-    
-    write_json_file('scrape_log.json', log_data)
+    log_data["scrapes"] = log_data["scrapes"].last(100)
+
+    write_json_file("scrape_log.json", log_data)
+  end
+
+  def track_missing_digital_items(current_checkouts, patron_name)
+    # Get the previous scrape data for comparison
+    previous_data = get_patron_historical_data(patron_name)
+    return unless previous_data
+
+    # Identify digital items from previous scrapes
+    previous_digital_items = previous_data.select do |item|
+      digital_types = ["eBook", "eAudiobook", "Digital"]
+      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
+    end
+
+    # Find current digital items
+    current_digital_items = current_checkouts.select do |item|
+      digital_types = ["eBook", "eAudiobook", "Digital"]
+      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
+    end
+
+    # Find missing digital items (were in previous scrape but not in current)
+    missing_items = previous_digital_items.reject do |prev_item|
+      current_digital_items.any? { |curr_item| curr_item["item_id"] == prev_item["item_id"] }
+    end
+
+    # Log missing digital items if any are found
+    if missing_items.any?
+      missing_log = {
+        timestamp: Time.now.iso8601,
+        patron_name: patron_name,
+        missing_digital_items: missing_items.map do |item|
+          {
+            title: item["title"],
+            author: item["author"],
+            type: item["type"],
+            item_id: item["item_id"],
+            last_seen: previous_data.first&.dig("timestamp") || "unknown"
+          }
+        end,
+        total_current_digital: current_digital_items.length,
+        total_missing: missing_items.length
+      }
+
+      save_missing_items_log(missing_log)
+    end
+
+    missing_items
+  end
+
+  def save_missing_items_log(log_entry)
+    log_data = read_json_file("missing_items_log.json") || {"missing_items_events" => []}
+    log_data["missing_items_events"] << log_entry
+
+    # Keep only last 50 missing item events
+    log_data["missing_items_events"] = log_data["missing_items_events"].last(50)
+
+    write_json_file("missing_items_log.json", log_data)
+  end
+
+  def get_patron_historical_data(patron_name, days_back = 1)
+    # Get the last known checkout data for a patron from previous scrapes
+    log_data = read_json_file("scrape_log.json")
+    return [] unless log_data && log_data["scrapes"]
+
+    # Find the most recent successful scrape for this patron
+    cutoff_time = Time.now - (days_back * 24 * 60 * 60)
+
+    recent_scrapes = log_data["scrapes"]
+      .select { |scrape| scrape["patron_name"] == patron_name && scrape["success"] }
+      .select { |scrape| Time.parse(scrape["timestamp"]) > cutoff_time }
+      .sort_by { |scrape| scrape["timestamp"] }
+      .reverse
+
+    return [] if recent_scrapes.empty?
+
+    # Try to get checkout data from around that time
+    # For now, we'll use the current checkout data as a baseline
+    # In a future enhancement, we could store historical snapshots
+    checkouts_data = read_json_file("checkouts.json")
+    return [] unless checkouts_data && checkouts_data["checkouts"]
+
+    checkouts_data["checkouts"].select { |item| item["patron_name"] == patron_name }
+  end
+
+  def get_missing_items_report
+    log_data = read_json_file("missing_items_log.json")
+    return [] unless log_data && log_data["missing_items_events"]
+
+    log_data["missing_items_events"]
   end
 
   def get_last_scrape_time
-    log_data = read_json_file('scrape_log.json')
-    return nil unless log_data && log_data['scrapes']
-    
-    last_successful_scrape = log_data['scrapes'].reverse.find { |scrape| scrape['success'] }
-    last_successful_scrape&.dig('timestamp')
+    log_data = read_json_file("scrape_log.json")
+    return nil unless log_data && log_data["scrapes"]
+
+    last_successful_scrape = log_data["scrapes"].reverse.find { |scrape| scrape["success"] }
+    last_successful_scrape&.dig("timestamp")
   end
 
   def get_thumbnail_path(item_id)
-    File.join(@data_dir, 'thumbnails', "#{item_id}.jpg")
+    File.join(@data_dir, "thumbnails", "#{item_id}.jpg")
   end
 
   def save_thumbnail(item_id, image_data)
@@ -110,22 +198,24 @@ class DataStore
   end
 
   def ensure_thumbnail_directory
-    FileUtils.mkdir_p(File.join(@data_dir, 'thumbnails'))
+    FileUtils.mkdir_p(File.join(@data_dir, "thumbnails"))
   end
 
   def initialize_data_files
-    %w[checkouts.json holds.json scrape_log.json].each do |filename|
+    %w[checkouts.json holds.json scrape_log.json missing_items_log.json].each do |filename|
       file_path = File.join(@data_dir, filename)
       next if File.exist?(file_path)
 
       initial_data = case filename
-                     when 'checkouts.json'
-                       { checkouts: [], last_updated: nil }
-                     when 'holds.json'
-                       { holds: [], last_updated: nil }
-                     when 'scrape_log.json'
-                       { scrapes: [] }
-                     end
+      when "checkouts.json"
+        {checkouts: [], last_updated: nil}
+      when "holds.json"
+        {holds: [], last_updated: nil}
+      when "scrape_log.json"
+        {scrapes: []}
+      when "missing_items_log.json"
+        {missing_items_events: []}
+      end
 
       write_json_file(filename, initial_data)
     end
@@ -149,21 +239,19 @@ class DataStore
   def calculate_stats(checkouts, holds)
     now = Time.now
     due_soon_threshold = now + (3 * 24 * 60 * 60) # 3 days from now
-    
+
     items_due_soon = checkouts.count do |item|
-      begin
-        due_date = Time.parse(item['due_date'])
-        due_date <= due_soon_threshold
-      rescue
-        false
-      end
+      due_date = Time.parse(item["due_date"])
+      due_date <= due_soon_threshold
+    rescue
+      false
     end
 
     {
       total_checkouts: checkouts.length,
       total_holds: holds.length,
       items_due_soon: items_due_soon,
-      patrons: (checkouts + holds).map { |item| item['patron_name'] }.uniq.compact
+      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact
     }
   end
 end

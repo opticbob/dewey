@@ -4,8 +4,8 @@ threads threads_count, threads_count
 
 preload_app!
 
-rackup      DefaultRackup
-port        ENV.fetch("PORT") { 4567 }
+# rackup DefaultRackup
+port ENV.fetch("PORT") { 4567 }
 environment ENV.fetch("RACK_ENV") { "development" }
 
 on_worker_boot do
