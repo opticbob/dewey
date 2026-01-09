@@ -308,8 +308,13 @@ class LibraryScraper
 
           # Get thumbnail URL if available
           thumbnail_url = begin
-            img = item.locator(THUMBNAIL_SELECTOR).first
-            img.get_attribute("src") if img
+            img_locator = item.locator(THUMBNAIL_SELECTOR)
+            # Check if thumbnail exists first to avoid timeout
+            if img_locator.count > 0
+              img_locator.first.get_attribute("src", timeout: 1000)
+            else
+              nil
+            end
           rescue
             nil
           end
@@ -444,8 +449,13 @@ class LibraryScraper
 
           # Get thumbnail URL if available
           thumbnail_url = begin
-            img = item.locator(HOLD_THUMBNAIL_SELECTOR).first
-            img.get_attribute("src") if img
+            img_locator = item.locator(HOLD_THUMBNAIL_SELECTOR)
+            # Check if thumbnail exists first to avoid timeout
+            if img_locator.count > 0
+              img_locator.first.get_attribute("src", timeout: 1000)
+            else
+              nil
+            end
           rescue
             nil
           end
