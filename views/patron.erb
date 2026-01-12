@@ -2,11 +2,18 @@
 
 <div class="section-header">
     <h1 class="section-title">📚 <%= @patron_name %>'s Library Activity</h1>
-    <div>
-        <a href="/" style="margin-right: 1rem; color: #667eea; text-decoration: none;">← Back to Family Dashboard</a>
-        <form method="post" action="/refresh" style="display: inline;">
-            <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
-        </form>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <% if @data && @data[:last_updated] %>
+            <div style="font-size: 0.85rem; color: #666;">
+                Scraped <%= relative_time(@data[:last_updated]) %>
+            </div>
+        <% end %>
+        <div>
+            <a href="/" style="margin-right: 1rem; color: #667eea; text-decoration: none;">← Back to Family Dashboard</a>
+            <form method="post" action="/refresh" style="display: inline;">
+                <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -30,60 +37,11 @@
 <% end %>
 
 <% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>
-    <div class="section-header">
-        <h2 class="section-title">📖 Current Checkouts</h2>
-    </div>
-    
-    <div class="items-grid">
-        <% @data[:checkouts].each do |item| %>
-            <div class="item-card">
-                <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="item-image" loading="lazy">
-                <div class="item-content">
-                    <h3 class="item-title"><%= item['title'] %></h3>
-                    <p class="item-author">by <%= item['author'] || 'Unknown Author' %></p>
-                    <div class="item-meta">
-                        <span class="item-type"><%= item['type'] || 'Book' %></span>
-                        <% if item['renewable'] %>
-                            <span style="color: #388e3c; font-size: 0.8rem;">✓ Renewable</span>
-                        <% end %>
-                    </div>
-                    <div class="item-meta">
-                        <span class="due-date <%= due_date_class(item['due_date']) %>">
-                            Due: <%= format_due_date(item['due_date']) %>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        <% end %>
-    </div>
+    <%= erb :_checkouts_table, locals: { checkouts: @data[:checkouts], show_patron: false } %>
 <% end %>
 
 <% if @data && @data[:holds] && !@data[:holds].empty? %>
-    <div class="section-header">
-        <h2 class="section-title">📋 Current Holds</h2>
-    </div>
-    
-    <div class="items-grid">
-        <% @data[:holds].each do |item| %>
-            <div class="item-card">
-                <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="item-image" loading="lazy">
-                <div class="item-content">
-                    <h3 class="item-title"><%= item['title'] %></h3>
-                    <p class="item-author">by <%= item['author'] || 'Unknown Author' %></p>
-                    <div class="item-meta">
-                        <span class="hold-status <%= status_class(item['status']) %>">
-                            <%= item['status'] || 'In Queue' %>
-                        </span>
-                    </div>
-                    <% if item['queue_position'] %>
-                        <div class="item-meta">
-                            <span style="color: #666;">Position: #<%= item['queue_position'] %></span>
-                        </div>
-                    <% end %>
-                </div>
-            </div>
-        <% end %>
-    </div>
+    <%= erb :_holds_table, locals: { holds: @data[:holds], show_patron: false } %>
 <% end %>
 
 <% if (!@data || (@data[:checkouts]&.empty? && @data[:holds]&.empty?)) %>

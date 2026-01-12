@@ -2,9 +2,16 @@
 
 <div class="section-header">
     <h1 class="section-title">Family Library Dashboard</h1>
-    <form method="post" action="/refresh" style="display: inline;">
-        <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
-    </form>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <% if @data && @data[:last_updated] %>
+            <div style="font-size: 0.85rem; color: #666;">
+                Scraped <%= relative_time(@data[:last_updated]) %>
+            </div>
+        <% end %>
+        <form method="post" action="/refresh" style="display: inline;">
+            <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
+        </form>
+    </div>
 </div>
 
 <% if @data && @data[:stats] %>
@@ -31,98 +38,11 @@
 <% end %>
 
 <% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>
-    <div class="section-header">
-        <h2 class="section-title">📖 Current Checkouts (<%= @data[:checkouts].length %>)</h2>
-    </div>
-
-    <div class="table-container">
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 60px;"></th>
-                    <th>Title / Author</th>
-                    <th style="width: 120px;">Type</th>
-                    <th style="width: 150px;">Due Date</th>
-                    <th style="width: 120px;">Patron</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% @data[:checkouts].each do |item| %>
-                    <tr>
-                        <td class="thumbnail-cell">
-                            <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="table-thumbnail" loading="lazy">
-                        </td>
-                        <td class="title-cell">
-                            <div class="title-main"><%= item['title'] %></div>
-                            <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
-                        </td>
-                        <td class="type-cell">
-                            <span class="badge badge-type"><%= item['type'] || 'Book' %></span>
-                        </td>
-                        <td class="due-cell">
-                            <div class="<%= due_date_class(item['due_date']) %>">
-                                <%= format_due_date(item['due_date']) %>
-                            </div>
-                            <% if item['renewable'] %>
-                                <div class="renewable-badge">✓ Renewable</div>
-                            <% end %>
-                        </td>
-                        <td class="patron-cell">
-                            <span class="badge badge-patron"><%= item['patron_name'] %></span>
-                        </td>
-                    </tr>
-                <% end %>
-            </tbody>
-        </table>
-    </div>
+    <%= erb :_checkouts_table, locals: { checkouts: @data[:checkouts], show_patron: true } %>
 <% end %>
 
 <% if @data && @data[:holds] && !@data[:holds].empty? %>
-    <div class="section-header">
-        <h2 class="section-title">📋 Current Holds (<%= @data[:holds].length %>)</h2>
-    </div>
-
-    <div class="table-container">
-        <table class="items-table">
-            <thead>
-                <tr>
-                    <th style="width: 60px;"></th>
-                    <th>Title / Author</th>
-                    <th style="width: 150px;">Status</th>
-                    <th style="width: 100px;">Position</th>
-                    <th style="width: 120px;">Patron</th>
-                </tr>
-            </thead>
-            <tbody>
-                <% @data[:holds].each do |item| %>
-                    <tr>
-                        <td class="thumbnail-cell">
-                            <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="table-thumbnail" loading="lazy">
-                        </td>
-                        <td class="title-cell">
-                            <div class="title-main"><%= item['title'] %></div>
-                            <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
-                        </td>
-                        <td class="status-cell">
-                            <span class="badge <%= status_class(item['status']) %>">
-                                <%= item['status'] || 'In Queue' %>
-                            </span>
-                        </td>
-                        <td class="position-cell">
-                            <% if item['queue_position'] %>
-                                <span class="queue-position">#<%= item['queue_position'] %></span>
-                            <% else %>
-                                <span style="color: #999;">—</span>
-                            <% end %>
-                        </td>
-                        <td class="patron-cell">
-                            <span class="badge badge-patron"><%= item['patron_name'] %></span>
-                        </td>
-                    </tr>
-                <% end %>
-            </tbody>
-        </table>
-    </div>
+    <%= erb :_holds_table, locals: { holds: @data[:holds], show_patron: true } %>
 <% end %>
 
 <% if (!@data || (@data[:checkouts]&.empty? && @data[:holds]&.empty?)) %>

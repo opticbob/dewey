@@ -31,6 +31,9 @@ class LibraryScraper
   HOLD_STATUS_SELECTOR = ".status-name"
   POSITION_SELECTOR = ".cp-hold-position"
   HOLD_THUMBNAIL_SELECTOR = ".jacket-cover-container img"
+  HOLD_TYPE_SELECTOR = ".display-info-primary"
+  CHECKOUT_BY_DATE_SELECTOR = ".cp-pick-up-date .cp-short-formatted-date"
+  HOLD_EXPIRY_DATE_SELECTOR = ".cp-hold-expiry-date .cp-short-formatted-date"
 
   # Pagination selectors for Bibliocommons
   PAGINATION_ITEM_SELECTOR = "a.pagination-item__link[data-page]"
@@ -428,6 +431,38 @@ class LibraryScraper
           author = extract_text_with_fallback(item, [HOLD_AUTHOR_SELECTOR, ".cp-author-link a"])
           status = extract_text_with_fallback(item, [HOLD_STATUS_SELECTOR])
 
+          # Extract and normalize item type (same as checkouts)
+          raw_type = extract_text_with_fallback(item, [HOLD_TYPE_SELECTOR, TYPE_SELECTOR]) || "Book"
+          item_type = normalize_item_type(raw_type)
+
+          # Get checkout by date if available (for ready holds - physical or electronic)
+          checkout_by = begin
+            date_element = item.locator(CHECKOUT_BY_DATE_SELECTOR)
+            if date_element.count > 0
+              date_text = date_element.text_content(timeout: 1000)&.strip
+              parse_due_date(date_text) if date_text && !date_text.empty?
+            else
+              nil
+            end
+          rescue => e
+            @logger.debug "    Could not extract checkout_by date: #{e.message}"
+            nil
+          end
+
+          # Get hold expiry date if available (when the hold will expire/be suspended)
+          expires_on = begin
+            date_element = item.locator(HOLD_EXPIRY_DATE_SELECTOR)
+            if date_element.count > 0
+              date_text = date_element.text_content(timeout: 1000)&.strip
+              parse_due_date(date_text) if date_text && !date_text.empty?
+            else
+              nil
+            end
+          rescue => e
+            @logger.debug "    Could not extract expires_on date: #{e.message}"
+            nil
+          end
+
           # Get queue position if available
           # Position format: "<strong>#1</strong> on 1 copies" or empty for ready holds
           position = begin
@@ -472,8 +507,11 @@ class LibraryScraper
           hold = {
             "title" => title,
             "author" => author,
+            "type" => item_type,
             "status" => status,
             "queue_position" => position,
+            "checkout_by" => checkout_by,
+            "expires_on" => expires_on,
             "patron_name" => patron_name,
             "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
             "item_id" => item_id
@@ -483,7 +521,9 @@ class LibraryScraper
 
           item_elapsed = Time.now - item_start_time
           position_text = position ? " (position #{position})" : ""
-          @logger.info "  ✓ '#{title}' by #{author || "(no author)"} - #{status}#{position_text} (#{format_duration(item_elapsed)})"
+          checkout_text = checkout_by ? " - checkout by #{checkout_by}" : ""
+          expires_text = expires_on ? " - expires #{expires_on}" : ""
+          @logger.info "  ✓ #{item_type}: '#{title}' by #{author || "(no author)"} - #{status}#{position_text}#{checkout_text}#{expires_text} (#{format_duration(item_elapsed)})"
         rescue => e
           item_elapsed = Time.now - item_start_time
           @logger.warn "  ✗ Failed to parse hold item #{item_number}: #{e.message} (#{format_duration(item_elapsed)})"

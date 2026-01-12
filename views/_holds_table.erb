@@ -1,0 +1,69 @@
+<div class="section-header">
+    <h2 class="section-title">📋 Current Holds (<%= holds.length %>)</h2>
+</div>
+
+<div class="table-container">
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 60px;"></th>
+                <th>Title / Author</th>
+                <th style="width: 120px;">Type</th>
+                <th style="width: 150px;">Status</th>
+                <th style="width: 100px;">Position</th>
+                <th style="width: 140px;">Checkout By</th>
+                <% if show_patron %>
+                    <th style="width: 120px;">Patron</th>
+                <% end %>
+            </tr>
+        </thead>
+        <tbody>
+            <% holds.each do |item| %>
+                <tr>
+                    <td class="thumbnail-cell">
+                        <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="table-thumbnail" loading="lazy">
+                    </td>
+                    <td class="title-cell">
+                        <div class="title-main"><%= item['title'] %></div>
+                        <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
+                    </td>
+                    <td class="type-cell">
+                        <span class="badge badge-type"><%= item['type'] || 'Book' %></span>
+                    </td>
+                    <td class="status-cell">
+                        <span class="badge <%= status_class(item['status']) %>">
+                            <%= item['status'] || 'In Queue' %>
+                        </span>
+                    </td>
+                    <td class="position-cell">
+                        <% if item['queue_position'] %>
+                            <span class="queue-position">#<%= item['queue_position'] %></span>
+                        <% else %>
+                            <span style="color: #999;">—</span>
+                        <% end %>
+                    </td>
+                    <td class="checkout-cell">
+                        <% status = item['status']&.downcase&.strip || "" %>
+                        <% if status == "not ready" %>
+                            <span style="color: #999;">—</span>
+                        <% else %>
+                            <% deadline_date = item['checkout_by'] || item['expires_on'] %>
+                            <% if deadline_date %>
+                                <div class="<%= due_date_class(deadline_date) %>">
+                                    <%= format_due_date(deadline_date) %>
+                                </div>
+                            <% else %>
+                                <span style="color: #999;">—</span>
+                            <% end %>
+                        <% end %>
+                    </td>
+                    <% if show_patron %>
+                        <td class="patron-cell">
+                            <span class="badge badge-patron"><%= item['patron_name'] %></span>
+                        </td>
+                    <% end %>
+                </tr>
+            <% end %>
+        </tbody>
+    </table>
+</div>

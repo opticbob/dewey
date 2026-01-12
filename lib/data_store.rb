@@ -40,10 +40,13 @@ class DataStore
     checkouts_data = read_json_file("checkouts.json") || {}
     holds_data = read_json_file("holds.json") || {}
 
+    checkouts = checkouts_data["checkouts"] || []
+    holds = holds_data["holds"] || []
+
     {
-      checkouts: checkouts_data["checkouts"] || [],
-      holds: holds_data["holds"] || [],
-      stats: calculate_stats(checkouts_data["checkouts"] || [], holds_data["holds"] || []),
+      checkouts: sort_checkouts(checkouts),
+      holds: sort_holds(holds),
+      stats: calculate_stats(checkouts, holds),
       last_updated: [checkouts_data["last_updated"], holds_data["last_updated"]].compact.max
     }
   end
@@ -192,6 +195,63 @@ class DataStore
   end
 
   private
+
+  def sort_checkouts(checkouts)
+    # Sort by due date (earliest first)
+    checkouts.sort_by do |item|
+      begin
+        Time.parse(item["due_date"])
+      rescue
+        Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end (1 year from now)
+      end
+    end
+  end
+
+  def sort_holds(holds)
+    # Separate holds into three categories
+    ready_holds = []
+    active_holds = []
+    paused_holds = []
+
+    holds.each do |item|
+      status = item["status"]&.downcase&.strip || ""
+      # Check if item is ready (status is "ready" or "available", but NOT "not ready")
+      if status == "ready" || status == "available"
+        ready_holds << item
+      elsif status == "paused"
+        paused_holds << item
+      else
+        active_holds << item
+      end
+    end
+
+    # Sort ready holds by checkout_by date (earliest deadline first)
+    sorted_ready = ready_holds.sort_by do |item|
+      deadline = item["checkout_by"] || item["expires_on"]
+      if deadline
+        begin
+          Time.parse(deadline)
+        rescue
+          Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end
+        end
+      else
+        Time.now + (365 * 24 * 60 * 60) # Put items without dates at the end
+      end
+    end
+
+    # Sort active not-ready holds by queue position
+    sorted_active = active_holds.sort_by do |item|
+      item["queue_position"] || 999 # Put items without position at the end
+    end
+
+    # Sort paused holds by queue position
+    sorted_paused = paused_holds.sort_by do |item|
+      item["queue_position"] || 999 # Put items without position at the end
+    end
+
+    # Return ready holds first, then active holds, then paused holds
+    sorted_ready + sorted_active + sorted_paused
+  end
 
   def ensure_data_directory
     FileUtils.mkdir_p(@data_dir)

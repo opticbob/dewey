@@ -142,9 +142,11 @@ class DeweyApp < Sinatra::Base
     def status_class(status)
       return "status-waiting" unless status
 
-      status_lower = status.downcase
-      if status_lower.include?("ready") || status_lower.include?("available")
+      status_lower = status.downcase.strip
+      if status_lower == "ready" || status_lower == "available"
         "status-ready"
+      elsif status_lower == "not ready"
+        "status-not-ready"
       elsif status_lower.include?("transit") || status_lower.include?("shipping")
         "status-transit"
       else
@@ -160,6 +162,30 @@ class DeweyApp < Sinatra::Base
         timestamp.strftime("%B %d, %Y at %I:%M %p")
       rescue
         timestamp_str
+      end
+    end
+
+    def relative_time(timestamp_str)
+      return "never" unless timestamp_str
+
+      begin
+        timestamp = Time.parse(timestamp_str)
+        seconds_ago = (Time.now - timestamp).to_i
+
+        if seconds_ago < 60
+          "#{seconds_ago} seconds ago"
+        elsif seconds_ago < 3600
+          minutes = seconds_ago / 60
+          "#{minutes} #{minutes == 1 ? 'minute' : 'minutes'} ago"
+        elsif seconds_ago < 86400
+          hours = seconds_ago / 3600
+          "#{hours} #{hours == 1 ? 'hour' : 'hours'} ago"
+        else
+          days = seconds_ago / 86400
+          "#{days} #{days == 1 ? 'day' : 'days'} ago"
+        end
+      rescue
+        "unknown"
       end
     end
   end
