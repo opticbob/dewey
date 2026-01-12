@@ -16,20 +16,26 @@
 
 <% if @data && @data[:stats] %>
     <div class="stats-grid">
-        <div class="stat-card">
-            <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
-            <span class="stat-label">Total Checkouts</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
-            <span class="stat-label">Total Holds</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
-                <%= @data[:stats][:items_due_soon] %>
-            </span>
-            <span class="stat-label">Due Within 3 Days</span>
-        </div>
+        <a href="#checkouts" class="stat-card-link">
+            <div class="stat-card">
+                <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
+                <span class="stat-label">Total Checkouts</span>
+            </div>
+        </a>
+        <a href="#holds" class="stat-card-link">
+            <div class="stat-card">
+                <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
+                <span class="stat-label">Total Holds</span>
+            </div>
+        </a>
+        <a href="#checkouts" class="stat-card-link">
+            <div class="stat-card">
+                <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
+                    <%= @data[:stats][:items_due_soon] %>
+                </span>
+                <span class="stat-label">Due Within 3 Days</span>
+            </div>
+        </a>
         <div class="stat-card">
             <span class="stat-number"><%= @data[:stats][:patrons]&.length || 0 %></span>
             <span class="stat-label">Family Members</span>

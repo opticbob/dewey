@@ -15,6 +15,7 @@ class LibraryScraper
   CHECKOUTS_CONTAINER_SELECTOR = ".cp-batch-actions-list"
   CHECKOUT_ITEM_SELECTOR = ".batch-actions-list-item-details"
   TITLE_SELECTOR = ".cp-title .title-content"
+  SUBTITLE_SELECTOR = ".cp-subtitle"
   AUTHOR_SELECTOR = ".cp-author-link a"
   DUE_DATE_SELECTOR = ".cp-short-formatted-date"
   TYPE_SELECTOR = ".display-info-primary"
@@ -292,6 +293,7 @@ class LibraryScraper
 
           # Use the precise selectors identified from the HTML structure
           title = extract_text_with_fallback(item, [TITLE_SELECTOR, ".title-content", ".cp-title a"])
+          subtitle = extract_text_with_fallback(item, [SUBTITLE_SELECTOR])
           author = extract_text_with_fallback(item, [AUTHOR_SELECTOR, ".cp-author-link", ".author-link"])
           due_date = extract_text_with_fallback(item, [DUE_DATE_SELECTOR])
 
@@ -333,6 +335,7 @@ class LibraryScraper
 
           checkout = {
             "title" => title,
+            "subtitle" => subtitle,
             "author" => author,
             "due_date" => parse_due_date(due_date),
             "type" => item_type,
@@ -428,6 +431,7 @@ class LibraryScraper
 
           # Extract title, author, and status using correct selectors
           title = extract_text_with_fallback(item, [HOLD_TITLE_SELECTOR, TITLE_SELECTOR, ".cp-title a"])
+          subtitle = extract_text_with_fallback(item, [SUBTITLE_SELECTOR])
           author = extract_text_with_fallback(item, [HOLD_AUTHOR_SELECTOR, ".cp-author-link a"])
           status = extract_text_with_fallback(item, [HOLD_STATUS_SELECTOR])
 
@@ -506,6 +510,7 @@ class LibraryScraper
 
           hold = {
             "title" => title,
+            "subtitle" => subtitle,
             "author" => author,
             "type" => item_type,
             "status" => status,

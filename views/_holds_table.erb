@@ -1,4 +1,4 @@
-<div class="section-header">
+<div class="section-header" id="holds">
     <h2 class="section-title">📋 Current Holds (<%= holds.length %>)</h2>
 </div>
 
@@ -25,6 +25,9 @@
                     </td>
                     <td class="title-cell">
                         <div class="title-main"><%= item['title'] %></div>
+                        <% if item['subtitle'] && !item['subtitle'].empty? %>
+                            <div class="title-subtitle"><%= item['subtitle'] %></div>
+                        <% end %>
                         <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
                     </td>
                     <td class="type-cell">
