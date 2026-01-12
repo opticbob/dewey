@@ -2,6 +2,8 @@
 
 A Ruby-based application that automatically scrapes your public library website to monitor your family's borrowing activity. Features a beautiful web dashboard and REST API for integration with Home Assistant or other home automation systems.
 
+**Designed for BiblioCommons library systems** - Works with libraries using the BiblioCommons platform (e.g., lawrence.bibliocommons.com, catalog.yourlib.bibliocommons.com). The scraper can be adapted for other library systems by updating CSS selectors.
+
 ## ✨ Features
 
 - **Automated Library Scraping**: Uses Playwright to log in and scrape checkout and hold data
@@ -406,6 +408,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Browser automation powered by [Playwright](https://playwright.dev/)
 - Designed for home lab deployment on [Proxmox](https://www.proxmox.com/)
 - Follows [StandardRB](https://github.com/testdouble/standard) code style
+- **Vibe coded with [Claude](https://claude.ai/)** - Developed through pair programming with Claude AI, using conversational development and iterative refinement
 
 ---
 
