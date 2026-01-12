@@ -97,9 +97,9 @@ class DeweyApp < Sinatra::Base
       return "Unknown" unless due_date_str
 
       begin
-        due_date = Time.parse(due_date_str)
-        now = Time.now
-        days_until_due = ((due_date - now) / 86400).to_i
+        due_date = Time.parse(due_date_str).to_date
+        today = Date.today
+        days_until_due = (due_date - today).to_i
 
         formatted_date = due_date.strftime("%b %d")
 
@@ -123,9 +123,9 @@ class DeweyApp < Sinatra::Base
       return "due-normal" unless due_date_str
 
       begin
-        due_date = Time.parse(due_date_str)
-        now = Time.now
-        days_until_due = ((due_date - now) / 86400).to_i
+        due_date = Time.parse(due_date_str).to_date
+        today = Date.today
+        days_until_due = (due_date - today).to_i
 
         if days_until_due < 0
           "due-overdue"

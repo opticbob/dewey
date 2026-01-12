@@ -297,11 +297,11 @@ class DataStore
   end
 
   def calculate_stats(checkouts, holds)
-    now = Time.now
-    due_soon_threshold = now + (3 * 24 * 60 * 60) # 3 days from now
+    today = Date.today
+    due_soon_threshold = today + 3 # 3 days from now
 
     items_due_soon = checkouts.count do |item|
-      due_date = Time.parse(item["due_date"])
+      due_date = Time.parse(item["due_date"]).to_date
       due_date <= due_soon_threshold
     rescue
       false
