@@ -28,6 +28,12 @@
             <span class="stat-label">Current Holds</span>
         </div>
         <div class="stat-card">
+            <span class="stat-number" style="color: <%= @data[:stats][:items_overdue] > 0 ? '#d32f2f' : '#388e3c' %>">
+                <%= @data[:stats][:items_overdue] %>
+            </span>
+            <span class="stat-label">Overdue</span>
+        </div>
+        <div class="stat-card">
             <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
                 <%= @data[:stats][:items_due_soon] %>
             </span>

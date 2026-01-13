@@ -300,6 +300,13 @@ class DataStore
     today = Date.today
     due_soon_threshold = today + 3 # 3 days from now
 
+    items_overdue = checkouts.count do |item|
+      due_date = Time.parse(item["due_date"]).to_date
+      due_date < today
+    rescue
+      false
+    end
+
     items_due_soon = checkouts.count do |item|
       due_date = Time.parse(item["due_date"]).to_date
       due_date <= due_soon_threshold
@@ -310,6 +317,7 @@ class DataStore
     {
       total_checkouts: checkouts.length,
       total_holds: holds.length,
+      items_overdue: items_overdue,
       items_due_soon: items_due_soon,
       patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact
     }
