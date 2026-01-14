@@ -114,6 +114,16 @@ class DeweyApp < Sinatra::Base
     redirect "/"
   end
 
+  # Manual thumbnail cleanup endpoint
+  post "/cleanup-thumbnails" do
+    deleted = @data_store.cleanup_stale_thumbnails(@item_tracker)
+    json({
+      status: "ok",
+      thumbnails_deleted: deleted,
+      timestamp: Time.now.iso8601
+    })
+  end
+
   # Helper methods for views
   helpers do
     def format_due_date(due_date_str)
@@ -229,6 +239,13 @@ class DeweyApp < Sinatra::Base
     scheduler.cron "0 6 * * *" do
       settings.logger.info "Starting daily 6 AM scrape"
       @scraper.scrape_all_patrons
+    end
+
+    # Clean up stale thumbnails weekly on Sundays at 3 AM
+    scheduler.cron "0 3 * * 0" do
+      settings.logger.info "Starting weekly thumbnail cleanup"
+      deleted = @data_store.cleanup_stale_thumbnails(@item_tracker)
+      settings.logger.info "Thumbnail cleanup complete: #{deleted} thumbnails deleted"
     end
   end
 

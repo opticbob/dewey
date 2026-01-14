@@ -164,6 +164,15 @@ class ItemTracker
     events
   end
 
+  def get_recent_item_ids(days_back = 90)
+    cutoff = (Time.now - (days_back * 24 * 60 * 60)).iso8601
+
+    @db.execute(
+      "SELECT DISTINCT item_id FROM item_snapshots WHERE scraped_at > ?",
+      [cutoff]
+    ).map { |row| row["item_id"] }
+  end
+
   private
 
   def determine_checkout_state(item)

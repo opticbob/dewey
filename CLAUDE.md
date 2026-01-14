@@ -39,6 +39,7 @@ Optional configuration:
 - `PLAYWRIGHT_HEADLESS=true` - Set to 'false' for debugging
 - `SCRAPE_INTERVAL=1` - Hours between scrapes
 - `DUE_SOON_DAYS=5` - Number of days to consider items "due soon"
+- `THUMBNAIL_RETENTION_DAYS=90` - Delete thumbnails not seen in X days
 - `LOG_LEVEL=INFO` - Logging level: DEBUG, INFO, WARN, ERROR
 
 ## API Endpoints
@@ -49,6 +50,7 @@ Optional configuration:
 - `GET /api/transitions?days=7&unexpected=true` - Item state transitions
 - `GET /health` - Health check with last scrape time
 - `POST /refresh` - Manual scrape trigger
+- `POST /cleanup-thumbnails` - Manual thumbnail cleanup
 
 ## Project Structure
 - `app.rb` - Main Sinatra application
@@ -76,6 +78,15 @@ Dewey uses SQLite to track item lifecycle and detect unexpected disappearances:
 - **Unexpected transitions**: items disappearing while waiting, ready holds vanishing
 
 The database stores rich historical data for analytics and troubleshooting.
+
+## Thumbnail Cleanup
+
+Dewey automatically cleans up stale thumbnails:
+
+- **Automatic**: Runs weekly on Sundays at 3 AM
+- **Retention**: Keeps thumbnails for items seen in the last 90 days (configurable via `THUMBNAIL_RETENTION_DAYS`)
+- **Manual**: Can be triggered via `POST /cleanup-thumbnails` endpoint
+- **Scope**: Removes thumbnails for all items not seen recently, including missing/returned items
 
 ## Debugging with Playwright MCP
 

@@ -215,6 +215,27 @@ class DataStore
     File.exist?(get_thumbnail_path(item_id))
   end
 
+  def cleanup_stale_thumbnails(item_tracker, days_back = nil)
+    thumbnail_dir = File.join(@data_dir, "thumbnails")
+    return 0 unless Dir.exist?(thumbnail_dir)
+
+    # Get retention period from env or use default
+    days_back ||= ENV.fetch("THUMBNAIL_RETENTION_DAYS", "90").to_i
+    recent_item_ids = item_tracker.get_recent_item_ids(days_back)
+
+    deleted_count = 0
+    Dir.glob(File.join(thumbnail_dir, "*.jpg")).each do |thumbnail_path|
+      filename = File.basename(thumbnail_path, ".jpg")
+
+      unless recent_item_ids.include?(filename)
+        File.delete(thumbnail_path)
+        deleted_count += 1
+      end
+    end
+
+    deleted_count
+  end
+
   private
 
   def sort_checkouts(checkouts)
