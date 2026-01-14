@@ -63,7 +63,7 @@
                 <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
                     <%= @data[:stats][:items_due_soon] %>
                 </span>
-                <span class="stat-label">Due Within 3 Days</span>
+                <span class="stat-label">Due Within <%= @data[:stats][:due_soon_days] %> Days</span>
             </div>
         </a>
         <div class="stat-card">

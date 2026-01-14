@@ -128,10 +128,11 @@ class DeweyApp < Sinatra::Base
         due_date = Time.parse(due_date_str).to_date
         today = Date.today
         days_until_due = (due_date - today).to_i
+        due_soon_threshold = ENV.fetch("DUE_SOON_DAYS", "5").to_i
 
         if days_until_due < 0
           "due-overdue"
-        elsif days_until_due <= 3
+        elsif days_until_due <= due_soon_threshold
           "due-soon"
         else
           "due-normal"

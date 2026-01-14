@@ -319,7 +319,8 @@ class DataStore
 
   def calculate_stats(checkouts, holds)
     today = Date.today
-    due_soon_threshold = today + 3 # 3 days from now
+    due_soon_days = ENV.fetch("DUE_SOON_DAYS", "5").to_i
+    due_soon_threshold = today + due_soon_days
 
     items_overdue = checkouts.count do |item|
       due_date = Time.parse(item["due_date"]).to_date
@@ -340,7 +341,8 @@ class DataStore
       total_holds: holds.length,
       items_overdue: items_overdue,
       items_due_soon: items_due_soon,
-      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact
+      due_soon_days: due_soon_days,
+      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact.sort
     }
   end
 end
