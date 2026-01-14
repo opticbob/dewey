@@ -9,6 +9,7 @@ gem "playwright-ruby-client", "~> 1.46"
 gem "rufus-scheduler", "~> 3.9"
 gem "httparty", "~> 0.22"
 gem "mini_magick", "~> 5.0"
+gem "sqlite3", "~> 2.5"
 
 group :development do
   gem "rerun", "~> 0.14"

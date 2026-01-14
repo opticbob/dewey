@@ -7,6 +7,7 @@ require "logger"
 require "date"
 require_relative "lib/data_store"
 require_relative "lib/library_scraper"
+require_relative "lib/item_tracker"
 
 class DeweyApp < Sinatra::Base
   configure do
@@ -28,6 +29,7 @@ class DeweyApp < Sinatra::Base
   def initialize(app = nil)
     super
     @data_store = DataStore.new("data")
+    @item_tracker = ItemTracker.new(@data_store.data_dir)
     @scraper = LibraryScraper.new(@data_store, settings.logger)
     start_scheduler
     run_initial_scrape
@@ -71,9 +73,28 @@ class DeweyApp < Sinatra::Base
   end
 
   get "/api/missing-items" do
+    missing_events = @item_tracker.get_missing_items_report(30)
     json({
-      missing_items_events: @data_store.get_missing_items_report,
-      total_events: @data_store.get_missing_items_report.length
+      missing_items_events: missing_events,
+      total_events: missing_events.length
+    })
+  end
+
+  get "/api/transitions" do
+    days_back = params[:days]&.to_i || 7
+    unexpected_only = params[:unexpected] == "true"
+
+    if unexpected_only
+      transitions = @item_tracker.get_unexpected_transitions(days_back)
+    else
+      # Could add a method to get all transitions if needed
+      transitions = @item_tracker.get_unexpected_transitions(days_back)
+    end
+
+    json({
+      transitions: transitions,
+      total: transitions.length,
+      days_back: days_back
     })
   end
 

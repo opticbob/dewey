@@ -38,23 +38,44 @@ Required for library scraping:
 Optional configuration:
 - `PLAYWRIGHT_HEADLESS=true` - Set to 'false' for debugging
 - `SCRAPE_INTERVAL=1` - Hours between scrapes
+- `DUE_SOON_DAYS=5` - Number of days to consider items "due soon"
 - `LOG_LEVEL=INFO` - Logging level: DEBUG, INFO, WARN, ERROR
 
 ## API Endpoints
 
 - `GET /api/status` - All library data (checkouts, holds, stats)
 - `GET /api/patron/:name` - Data for specific patron
-- `GET /api/missing-items` - Missing digital items tracking report
+- `GET /api/missing-items` - Unexpected item disappearances (last 30 days)
+- `GET /api/transitions?days=7&unexpected=true` - Item state transitions
 - `GET /health` - Health check with last scrape time
 - `POST /refresh` - Manual scrape trigger
 
 ## Project Structure
 - `app.rb` - Main Sinatra application
 - `lib/` - Ruby classes and modules
+  - `data_store.rb` - JSON data storage for current state
+  - `library_scraper.rb` - BiblioCommons web scraper
+  - `item_tracker.rb` - SQLite-based item lifecycle tracking
 - `views/` - ERB templates
-- `data/` - JSON data files, thumbnails, and tracking logs
+- `data/` - Data storage directory
+  - `checkouts.json`, `holds.json` - Current library items
+  - `item_tracking.db` - SQLite database for historical tracking
+  - `thumbnails/` - Cached item cover images
+  - `scrape_log.json` - Scraping attempt history
 - `config/` - Configuration files
 - `.github/workflows/` - GitHub Actions for CI/CD
+
+## Item Tracking with SQLite
+
+Dewey uses SQLite to track item lifecycle and detect unexpected disappearances:
+
+- **Snapshots**: Every scrape records a snapshot of all items
+- **Transitions**: Tracks state changes (e.g., hold_waiting → hold_ready → checked_out)
+- **Smart Detection**: Distinguishes expected transitions (returned near due date) from unexpected ones (digital hold vanishes)
+- **Expected transitions**: hold progressing to ready, checkout returned near due date
+- **Unexpected transitions**: items disappearing while waiting, ready holds vanishing
+
+The database stores rich historical data for analytics and troubleshooting.
 
 ## Debugging with Playwright MCP
 

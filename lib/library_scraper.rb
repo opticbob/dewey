@@ -2,6 +2,7 @@ require "playwright"
 require "httparty"
 require "digest"
 require "uri"
+require_relative "item_tracker"
 
 class LibraryScraper
   # Bibliocommons CSS selectors for Lawrence Public Library
@@ -45,6 +46,7 @@ class LibraryScraper
     @data_store = data_store
     @logger = logger
     @headless = ENV.fetch("PLAYWRIGHT_HEADLESS", "true") == "true"
+    @item_tracker = ItemTracker.new(@data_store.data_dir)
   end
 
   def scrape_all_patrons
@@ -117,9 +119,12 @@ class LibraryScraper
         all_checkouts.concat(checkouts)
         all_holds.concat(holds)
 
-        # Track missing digital items before saving new data
-        patron_checkouts = checkouts.select { |item| item["patron_name"] == patron[:name] }
-        missing_items = @data_store.track_missing_digital_items(patron_checkouts, patron[:name])
+        # Track item transitions and snapshot using ItemTracker
+        scraped_at = Time.now.iso8601
+        @item_tracker.detect_transitions(checkouts, holds, patron[:name], scraped_at)
+        @item_tracker.record_snapshot(checkouts, holds, patron[:name], scraped_at)
+
+        unexpected_count = @item_tracker.get_unexpected_transitions(1).count { |t| t["patron_name"] == patron[:name] }
 
         @data_store.save_checkouts(all_checkouts)
         @data_store.save_holds(all_holds)
@@ -130,7 +135,7 @@ class LibraryScraper
           {
             checkouts: checkouts.length,
             holds: holds.length,
-            missing_digital_items: missing_items.length
+            unexpected_transitions: unexpected_count
           }
         )
 
@@ -140,7 +145,7 @@ class LibraryScraper
         @logger.info "Data store updated in #{format_duration(data_store_elapsed)}"
         @logger.info "\n" + "█" * 80
         @logger.info "█ PATRON SCRAPE COMPLETE: #{patron[:name]}"
-        @logger.info "█ Checkouts: #{checkouts.length} | Holds: #{holds.length} | Missing: #{missing_items.length}"
+        @logger.info "█ Checkouts: #{checkouts.length} | Holds: #{holds.length} | Unexpected: #{unexpected_count}"
         @logger.info "█ Total time: #{format_duration(patron_elapsed)}"
         @logger.info "█" * 80
       ensure
