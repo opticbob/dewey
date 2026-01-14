@@ -17,6 +17,28 @@
     </div>
 </div>
 
+<% if @scrape_failures && !@scrape_failures.empty? %>
+    <div class="alert-banner">
+        <div class="alert-banner-title">
+            ⚠️ Scraping Issues Detected
+        </div>
+        <div class="alert-banner-content">
+            <%= @scrape_failures.length %> scrape <%= @scrape_failures.length == 1 ? 'failure' : 'failures' %> in the last 24 hours. Library data may be outdated.
+            <% @scrape_failures.take(3).each do |failure| %>
+                <div class="alert-banner-error">
+                    <strong><%= failure['patron_name'] %></strong>: <%= failure['error_message'] %>
+                    <div class="alert-banner-time"><%= relative_time(failure['timestamp']) %></div>
+                </div>
+            <% end %>
+            <% if @scrape_failures.length > 3 %>
+                <div style="margin-top: 0.5rem; color: #999; font-size: 0.85rem;">
+                    ... and <%= @scrape_failures.length - 3 %> more failures
+                </div>
+            <% end %>
+        </div>
+    </div>
+<% end %>
+
 <% if @data && @data[:stats] %>
     <div class="stats-grid">
         <div class="stat-card">

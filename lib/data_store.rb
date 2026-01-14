@@ -180,6 +180,27 @@ class DataStore
     last_successful_scrape&.dig("timestamp")
   end
 
+  def get_recent_scrape_failures
+    log_data = read_json_file("scrape_log.json")
+    return [] unless log_data && log_data["scrapes"]
+
+    # Get scrapes from the last 24 hours
+    cutoff_time = Time.now - (24 * 60 * 60)
+
+    recent_failures = log_data["scrapes"]
+      .select { |scrape| !scrape["success"] }
+      .select do |scrape|
+        begin
+          Time.parse(scrape["timestamp"]) > cutoff_time
+        rescue
+          false
+        end
+      end
+      .reverse # Most recent first
+
+    recent_failures
+  end
+
   def get_thumbnail_path(item_id)
     File.join(@data_dir, "thumbnails", "#{item_id}.jpg")
   end

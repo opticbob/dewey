@@ -36,6 +36,7 @@ class DeweyApp < Sinatra::Base
   # Web Dashboard Routes
   get "/" do
     @data = @data_store.get_all_data
+    @scrape_failures = @data_store.get_recent_scrape_failures
     erb :dashboard
   end
 
@@ -43,6 +44,7 @@ class DeweyApp < Sinatra::Base
     patron_name = params[:name]
     @data = @data_store.get_patron_data(patron_name)
     @patron_name = patron_name
+    @scrape_failures = @data_store.get_recent_scrape_failures
     erb :patron
   end
 
