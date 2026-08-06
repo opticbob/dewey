@@ -43,11 +43,13 @@
     <div class="stats-grid">
         <div class="stat-card">
             <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
-            <span class="stat-label">Current Checkouts</span>
+            <span class="stat-label">Checkouts</span>
+            <span class="stat-breakdown"><%= @data[:stats][:physical_checkouts] %> physical, <%= @data[:stats][:digital_checkouts] %> digital</span>
         </div>
         <div class="stat-card">
             <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
-            <span class="stat-label">Current Holds</span>
+            <span class="stat-label">Holds</span>
+            <span class="stat-breakdown"><%= @data[:stats][:physical_holds] %> physical, <%= @data[:stats][:digital_holds] %> digital</span>
         </div>
         <div class="stat-card">
             <span class="stat-number" style="color: <%= @data[:stats][:items_overdue] > 0 ? '#d32f2f' : '#388e3c' %>">

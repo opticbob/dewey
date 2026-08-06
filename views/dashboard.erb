@@ -41,13 +41,15 @@
         <a href="#checkouts" class="stat-card-link">
             <div class="stat-card">
                 <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
-                <span class="stat-label">Total Checkouts</span>
+                <span class="stat-label">Checkouts</span>
+                <span class="stat-breakdown"><%= @data[:stats][:physical_checkouts] %> physical, <%= @data[:stats][:digital_checkouts] %> digital</span>
             </div>
         </a>
         <a href="#holds" class="stat-card-link">
             <div class="stat-card">
                 <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
-                <span class="stat-label">Total Holds</span>
+                <span class="stat-label">Holds</span>
+                <span class="stat-breakdown"><%= @data[:stats][:physical_holds] %> physical, <%= @data[:stats][:digital_holds] %> digital</span>
             </div>
         </a>
         <a href="#checkouts" class="stat-card-link">

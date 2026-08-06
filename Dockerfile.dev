@@ -1,0 +1,48 @@
+FROM ruby:3.4.8-slim
+
+# Set environment variables
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+# Install system dependencies including X11 for non-headless mode
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    gnupg \
+    git \
+    build-essential \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js (required for Playwright)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Set working directory
+WORKDIR /app
+
+# Copy Gemfile first
+COPY Gemfile ./
+
+# Install Ruby gems (development mode for testing)
+RUN bundle install
+
+# Install Playwright and browsers
+RUN npm init -y \
+    && npm install playwright@1.46.0 \
+    && npx playwright install --with-deps chromium
+
+# Create data directory
+RUN mkdir -p /app/data /app/data/thumbnails
+
+# Copy application code
+COPY . .
+
+# Expose port
+EXPOSE 4567
+
+# For non-headless mode, start X server
+ENV DISPLAY=:99
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1024x768x24 & bundle exec ruby app.rb"]

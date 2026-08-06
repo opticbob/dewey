@@ -357,9 +357,26 @@ class DataStore
       false
     end
 
+    # Count physical vs digital items
+    digital_types = ["eBook", "eAudiobook", "Digital"]
+
+    digital_checkouts = checkouts.count do |item|
+      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
+    end
+    physical_checkouts = checkouts.length - digital_checkouts
+
+    digital_holds = holds.count do |item|
+      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
+    end
+    physical_holds = holds.length - digital_holds
+
     {
       total_checkouts: checkouts.length,
+      physical_checkouts: physical_checkouts,
+      digital_checkouts: digital_checkouts,
       total_holds: holds.length,
+      physical_holds: physical_holds,
+      digital_holds: digital_holds,
       items_overdue: items_overdue,
       items_due_soon: items_due_soon,
       due_soon_days: due_soon_days,
