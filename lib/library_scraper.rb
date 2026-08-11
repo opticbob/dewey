@@ -126,7 +126,9 @@ class LibraryScraper
         all_checkouts.concat(checkouts)
         all_holds.concat(holds)
 
-        # Track item transitions and snapshot using ItemTracker
+        # Track item transitions and snapshot using ItemTracker.
+        # Order matters: detect_transitions compares against the latest stored
+        # snapshot, so it must run before this scrape is recorded.
         scraped_at = Time.now.iso8601
         @item_tracker.detect_transitions(checkouts, holds, patron[:name], scraped_at)
         @item_tracker.record_snapshot(checkouts, holds, patron[:name], scraped_at)

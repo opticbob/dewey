@@ -95,9 +95,12 @@ class ItemTracker
     end
   end
 
-  # Detect and record transitions for a patron
+  # Detect and record transitions for a patron.
+  #
+  # Must be called BEFORE record_snapshot for the same scrape: it compares the
+  # incoming results against the latest snapshot in the table, which is only
+  # the previous scrape while the current one is still unwritten.
   def detect_transitions(checkouts, holds, patron_name, scraped_at = Time.now.iso8601)
-    # Get the most recent previous snapshot for this patron
     previous_snapshots = get_previous_snapshots(patron_name)
     return if previous_snapshots.empty?
 
@@ -195,9 +198,13 @@ class ItemTracker
   end
 
   def get_previous_snapshots(patron_name)
-    # Get the most recent scrape time before now
+    # The latest snapshot in the table *is* the previous scrape: callers run
+    # detect_transitions before record_snapshot, so the current scrape has not
+    # been written yet. Skipping a row here compared against a scrape two runs
+    # old, which reported items as disappeared while they were still present in
+    # the snapshot recorded moments later.
     previous_scrape = @db.execute(
-      "SELECT DISTINCT scraped_at FROM item_snapshots WHERE patron_name = ? ORDER BY scraped_at DESC LIMIT 1 OFFSET 1",
+      "SELECT DISTINCT scraped_at FROM item_snapshots WHERE patron_name = ? ORDER BY scraped_at DESC LIMIT 1",
       [patron_name]
     ).first
 
