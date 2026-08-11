@@ -1,6 +1,7 @@
 require "playwright"
 require "httparty"
 require "digest"
+require "set"
 require "uri"
 require_relative "item_tracker"
 
@@ -41,6 +42,12 @@ class LibraryScraper
   PAGINATION_ITEM_SELECTOR = "a.pagination-item__link[data-page]"
   NEXT_BUTTON_SELECTOR = 'button[aria-label*="next" i]:not([disabled])'
   PAGINATION_SELECTOR = ".cp-pagination-item"  # Legacy fallback
+
+  # Hard safety cap on pagination. BiblioCommons serves page 1's content for
+  # out-of-range ?page=N values rather than 404ing, so a "next" control that is
+  # always present will otherwise walk forever. Real accounts never come close
+  # to this many pages.
+  MAX_PAGES = 25
 
   def initialize(data_store, logger)
     @data_store = data_store
@@ -272,6 +279,7 @@ class LibraryScraper
     all_checkouts = []
     current_page = 1
     total_items_processed = 0
+    seen_fingerprints = Set.new
 
     loop do
       page_start_time = Time.now
@@ -357,6 +365,16 @@ class LibraryScraper
         end
       end
 
+      # Stop before recording anything if this page repeats the previous one.
+      # BiblioCommons serves page 1 for out-of-range page numbers, so without
+      # this the loop would keep collecting duplicates forever.
+      fingerprint = page_fingerprint(page_checkouts)
+      if seen_fingerprints.include?(fingerprint)
+        @logger.warn "Page #{current_page} repeats an earlier page; stopping checkout pagination"
+        break
+      end
+      seen_fingerprints << fingerprint
+
       all_checkouts.concat(page_checkouts)
       total_items_processed += checkout_items.length
 
@@ -365,7 +383,10 @@ class LibraryScraper
       @logger.info "Total checkouts collected so far: #{all_checkouts.length}"
 
       # Check for next page
-      if has_next_page?(page, current_page)
+      if current_page >= MAX_PAGES
+        @logger.warn "Reached page cap (#{MAX_PAGES}); stopping checkout pagination"
+        break
+      elsif has_next_page?(page, current_page)
         current_page += 1
         next_page_url = "#{checkout_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
@@ -410,6 +431,7 @@ class LibraryScraper
     all_holds = []
     current_page = 1
     total_items_processed = 0
+    seen_fingerprints = Set.new
 
     loop do
       page_start_time = Time.now
@@ -540,6 +562,16 @@ class LibraryScraper
         end
       end
 
+      # Stop before recording anything if this page repeats the previous one.
+      # BiblioCommons serves page 1 for out-of-range page numbers, so without
+      # this the loop would keep collecting duplicates forever.
+      fingerprint = page_fingerprint(page_holds)
+      if seen_fingerprints.include?(fingerprint)
+        @logger.warn "Page #{current_page} repeats an earlier page; stopping holds pagination"
+        break
+      end
+      seen_fingerprints << fingerprint
+
       all_holds.concat(page_holds)
       total_items_processed += hold_items.length
 
@@ -548,7 +580,10 @@ class LibraryScraper
       @logger.info "Total holds collected so far: #{all_holds.length}"
 
       # Check for next page
-      if has_next_page?(page, current_page)
+      if current_page >= MAX_PAGES
+        @logger.warn "Reached page cap (#{MAX_PAGES}); stopping holds pagination"
+        break
+      elsif has_next_page?(page, current_page)
         current_page += 1
         next_page_url = "#{holds_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
@@ -685,6 +720,17 @@ class LibraryScraper
   rescue => e
     @logger.debug "Error extracting author for #{field_name}: #{e.message}"
     nil
+  end
+
+  # Build a stable fingerprint of the items on the current page.
+  #
+  # Used to detect the case where BiblioCommons stops serving new results for
+  # ?page=N. Observed in the wild: a patron whose holds pages alternate between
+  # two payloads (A/B/A/B...) forever, so comparing only against the previous
+  # page never trips. Callers therefore track every fingerprint seen and stop
+  # on any repeat, regardless of what the pagination controls claim.
+  def page_fingerprint(items)
+    items.map { |item| "#{item["title"]}|#{item["author"]}|#{item["item_id"]}" }.join("\n")
   end
 
   def has_next_page?(page, current_page)
