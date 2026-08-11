@@ -31,8 +31,29 @@ class DeweyApp < Sinatra::Base
     @data_store = DataStore.new("data")
     @item_tracker = ItemTracker.new(@data_store.data_dir)
     @scraper = LibraryScraper.new(@data_store, settings.logger)
+    @scrape_mutex = Mutex.new
     start_scheduler
     run_initial_scrape
+  end
+
+  # Run a scrape unless one is already in flight.
+  #
+  # Scrapes can outlast their scheduling interval (a slow patron can take many
+  # minutes), and the startup scrape can still be running when the first
+  # interval fires. Overlapping runs hammer BiblioCommons and get us throttled,
+  # so a second concurrent attempt is skipped rather than queued.
+  def run_scrape(reason)
+    unless @scrape_mutex.try_lock
+      settings.logger.warn "Skipping #{reason}: a scrape is already running"
+      return
+    end
+
+    begin
+      settings.logger.info reason
+      @scraper.scrape_all_patrons
+    ensure
+      @scrape_mutex.unlock
+    end
   end
 
   # Web Dashboard Routes
@@ -230,15 +251,13 @@ class DeweyApp < Sinatra::Base
     scheduler = Rufus::Scheduler.new
     interval = ENV.fetch("SCRAPE_INTERVAL", "1").to_i
 
-    scheduler.every "#{interval}h" do
-      settings.logger.info "Starting scheduled scrape"
-      @scraper.scrape_all_patrons
+    scheduler.every "#{interval}h", overlap: false do
+      run_scrape("Starting scheduled scrape")
     end
 
     # Also run every day at 6 AM to catch any overnight changes
-    scheduler.cron "0 6 * * *" do
-      settings.logger.info "Starting daily 6 AM scrape"
-      @scraper.scrape_all_patrons
+    scheduler.cron "0 6 * * *", overlap: false do
+      run_scrape("Starting daily 6 AM scrape")
     end
 
     # Clean up stale thumbnails weekly on Sundays at 3 AM
@@ -252,8 +271,7 @@ class DeweyApp < Sinatra::Base
   def run_initial_scrape
     Thread.new do
       sleep 5 # Give the app time to start up
-      settings.logger.info "Running initial scrape on startup"
-      @scraper.scrape_all_patrons
+      run_scrape("Running initial scrape on startup")
     end
   end
 end
