@@ -196,4 +196,24 @@ class TestScraperExtraction < Minitest::Test
       refute @scraper.send(:has_next_page?, page, 1)
     end
   end
+
+  # Regression for the broken holds scrape. Every hold renders a "pause hold"
+  # date-picker whose navigation buttons are labelled "Select next month". The
+  # next-page selector matched any button with "next" in its aria-label, so a
+  # patron whose holds exactly filled one page (Josh, 25 of 25) looked like it
+  # had a second page; the scrape then walked into an empty page and timed out,
+  # failing roughly every hourly run.
+  #
+  # The fixture has date pickers and a pagination nav with no further pages, so
+  # the answer must be false. This needs a real browser: the selector is now
+  # scoped to .cp-pagination, which only a CSS engine can evaluate.
+  def test_date_picker_next_month_buttons_are_not_pagination
+    with_fixture("holds_page_datepicker.html") do |page|
+      assert_operator page.locator('button[aria-label*="next" i]').count, :>, 0,
+        "fixture should contain the date-picker buttons that caused the bug"
+
+      refute @scraper.send(:has_next_page?, page, 1),
+        "date-picker buttons must not be mistaken for a next page"
+    end
+  end
 end

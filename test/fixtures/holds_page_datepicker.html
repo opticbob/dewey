@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Fixture: holds with date pickers, no next page</title></head>
+<body>
+<!--
+  Reduced reproduction of the bug that broke Josh's holds scrape.
+
+  Every hold renders a "pause hold" date-picker calendar, whose navigation
+  buttons are labelled "Select next month". The next-page selector used to
+  match any button with "next" in its aria-label, so these looked like
+  pagination and the scraper walked on to a page that does not exist.
+
+  This page deliberately has date pickers but NO pagination links: it is a
+  single page of holds, so has_next_page? must report false.
+-->
+<div class="cp-batch-actions-list">
+  <div class="batch-actions-list-item-details">
+    <div class="cp-bib-list-item cp-hold-item">
+      <h2 class="cp-title"><a href="/v2/record/S000C000000"><span class="title-content">Emma</span></a></h2>
+      <span class="cp-by-author-block"><span class="cp-author-link"><a class="author-link" href="/v2/search">Austen, Jane</a></span></span>
+      <span class="status-name">Paused</span>
+      <div class="DayPickerNavigation">
+        <button aria-label="Select previous month" class="DayPickerNavigation_button" type="button"></button>
+        <button aria-label="Select next month" class="DayPickerNavigation_button" type="button"></button>
+      </div>
+    </div>
+  </div>
+  <div class="batch-actions-list-item-details">
+    <div class="cp-bib-list-item cp-hold-item">
+      <h2 class="cp-title"><a href="/v2/record/S000C000000"><span class="title-content">Hard Times</span></a></h2>
+      <span class="cp-by-author-block"><span class="cp-author-link"><a class="author-link" href="/v2/search">Dickens, Charles</a></span></span>
+      <span class="status-name">Paused</span>
+      <div class="DayPickerNavigation">
+        <button aria-label="Select previous month" class="DayPickerNavigation_button" type="button"></button>
+        <button aria-label="Select next month" class="DayPickerNavigation_button" type="button"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- The real pagination nav, present but with no further pages. -->
+<nav class="cp-pagination pagination--compact">
+  <span class="cp-pagination-label">Showing 1 - 25 of 25</span>
+  <ul class="pagination__desktop-items">
+    <li class="cp-pagination-item pagination__prev-chev"></li>
+  </ul>
+</nav>
+</body>
+</html>

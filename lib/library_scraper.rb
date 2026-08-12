@@ -49,9 +49,16 @@ class LibraryScraper
   CHECKOUT_BY_DATE_SELECTOR = ".cp-pick-up-date .cp-short-formatted-date"
   HOLD_EXPIRY_DATE_SELECTOR = ".cp-hold-expiry-date .cp-short-formatted-date"
 
-  # Pagination selectors for Bibliocommons
+  # Pagination selectors for Bibliocommons.
+  #
+  # The "next" control must be scoped to the pagination nav. Unscoped, an
+  # aria-label match also catches the "Select next month" buttons in the
+  # date-picker calendars that every hold renders, so a patron whose holds
+  # exactly fill a page looked like it had another page and the scrape ran on
+  # into an empty one.
   PAGINATION_ITEM_SELECTOR = "a.pagination-item__link[data-page]"
-  NEXT_BUTTON_SELECTOR = 'button[aria-label*="next" i]:not([disabled])'
+  NEXT_BUTTON_SELECTOR = '.cp-pagination button[aria-label*="next" i]:not([disabled]), ' \
+                         '.cp-pagination a[aria-label*="next" i]'
   PAGINATION_SELECTOR = ".cp-pagination-item"  # Legacy fallback
 
   # Hard safety cap on pagination. BiblioCommons serves page 1's content for

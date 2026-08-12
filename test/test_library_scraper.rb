@@ -261,6 +261,10 @@ class TestLibraryScraper < Minitest::Test
     refute @scraper.send(:has_next_page?, FakePage.new, 1)
   end
 
+  # The date-picker regression is covered in test_scraper_extraction.rb, where
+  # a real browser can evaluate the scoped CSS selector against markup. The
+  # fakes here match selector strings literally and cannot express scoping.
+
   # Failures while inspecting the page must not abort a scrape; the method
   # swallows errors and reports "no next page".
   def test_has_next_page_false_when_page_raises
