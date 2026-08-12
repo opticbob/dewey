@@ -1,5 +1,14 @@
 require_relative "test_helper"
 require "rack/test"
+
+# Must be set before app.rb loads. Sinatra 4 enforces host authorization
+# outside the test environment, and Rack::Test sends Host: example.org, so
+# every request would come back 403. Locally this was masked by RACK_ENV
+# being set to production in .env; CI has no .env and defaulted to
+# development, where the check is active.
+ENV["APP_ENV"] = "test"
+ENV["RACK_ENV"] = "test"
+
 require_relative "../app"
 
 # app.rb requires dotenv/load, which repopulates the real credentials from the
