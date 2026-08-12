@@ -178,7 +178,7 @@ cp .env.example .env
 bundle install
 
 # Install the Playwright browser driver (see note below)
-npm install -g playwright@1.57.0
+npm install -g playwright@1.60.0
 playwright install chromium
 
 # Start development server with auto-reload
@@ -193,15 +193,19 @@ speaks a private protocol to that driver and pins the version it supports:
 
 ```bash
 # Prints the npm version the installed gem requires
-ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
+bundle exec ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
 ```
 
-The gem and npm version numbers do not always line up — gem `1.57.1` pairs with
-npm `1.57.0`, since `1.57.1` was a gem-only release. Install whatever the command
-above reports. A mismatched driver fails with a confusing protocol error during
-scraping rather than a clear version warning, so it is worth getting right up
-front. The same version is pinned in `Dockerfile` and `Dockerfile.dev`; keep all
-three in sync when upgrading.
+The gem and npm version numbers do not always line up — gem `1.57.1`, for
+instance, paired with npm `1.57.0` because it was a gem-only release. Install
+whatever the command above reports. A mismatched driver fails with a confusing
+protocol error or a hang rather than a clear version warning, so it is worth
+getting right up front. The same version is pinned in `Dockerfile` and
+`Dockerfile.dev`; keep all three in sync when upgrading.
+
+The gem is held at `~> 1.60.0`: version 1.62.0 fails on launch with
+`timeout: expected float, got undefined` even when paired with its own driver.
+`bundle exec rake test` will catch this if you try to move the pin.
 
 ### Running StandardRB
 

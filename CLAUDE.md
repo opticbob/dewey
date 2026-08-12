@@ -25,7 +25,7 @@ package** must be installed separately from the gem — `bundle install` alone i
 not enough.
 
 ```bash
-npm install -g playwright@1.57.0   # must match the gem's COMPATIBLE_PLAYWRIGHT_VERSION
+npm install -g playwright@1.60.0   # must match the gem's COMPATIBLE_PLAYWRIGHT_VERSION
 playwright install chromium        # downloads the browser binary
 ```
 
@@ -34,15 +34,20 @@ driver over a private protocol and declares the exact version it expects in
 `Playwright::COMPATIBLE_PLAYWRIGHT_VERSION`. To find the required npm version:
 
 ```bash
-ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
+bundle exec ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
 ```
 
-Note that the gem and npm versions are *not* always identical — gem 1.57.1 is a
-gem-only patch release that pairs with npm 1.57.0 (no npm 1.57.1 exists). Always
-use the constant above rather than assuming the versions match. A mismatch is not
-caught with a friendly error; it surfaces as an obscure protocol failure at scrape
-time. When bumping the gem, update the pinned npm version in `Dockerfile` and
-`Dockerfile.dev` to match.
+The gem and npm versions are *not* always identical — gem 1.57.1, for example,
+was a gem-only patch that paired with npm 1.57.0. Always use the constant above
+rather than assuming they match. A mismatch is not caught with a friendly error;
+it surfaces as an obscure protocol failure or a hang at scrape time. When bumping
+the gem, update the pinned npm version in `Dockerfile` and `Dockerfile.dev` too.
+
+**`playwright-ruby-client` is held at `~> 1.60.0`.** Version 1.62.0 fails on
+launch with `timeout: expected float, got undefined`, even with its matching
+driver (npm 1.62.1) and on both Ruby 3.4 and 4.0. Re-test before relaxing that
+pin; `bundle exec rake test` covers it, since the extraction tests launch a real
+browser.
 
 ## Environment Variables
 

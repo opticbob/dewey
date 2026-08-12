@@ -176,7 +176,7 @@ class DataStore
     log_data = read_json_file("scrape_log.json")
     return nil unless log_data && log_data["scrapes"]
 
-    last_successful_scrape = log_data["scrapes"].reverse.find { |scrape| scrape["success"] }
+    last_successful_scrape = log_data["scrapes"].rfind { |scrape| scrape["success"] }
     last_successful_scrape&.dig("timestamp")
   end
 

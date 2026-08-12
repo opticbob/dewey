@@ -1,4 +1,4 @@
-FROM ruby:3.4.8-slim
+FROM ruby:4.0.6-slim
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y nodejs
 
 WORKDIR /app
@@ -50,7 +50,7 @@ RUN apt-get update && apt-get install -y \
 
 # Must match Playwright::COMPATIBLE_PLAYWRIGHT_VERSION from the playwright-ruby-client gem
 RUN npm init -y \
-    && npm install playwright@1.57.0 \
+    && npm install playwright@1.60.0 \
     && npx playwright install chromium
 
 RUN mkdir -p /app/data /app/data/thumbnails \
