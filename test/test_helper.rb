@@ -8,6 +8,9 @@ require "time"
 # libraries are loaded directly rather than through app.rb.
 $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 
+# Skip the scraper's politeness delay between pages; tests drive fake pages.
+ENV["PAGE_SETTLE_SECONDS"] ||= "0"
+
 require "data_store"
 require "item_tracker"
 

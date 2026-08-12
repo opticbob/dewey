@@ -203,6 +203,43 @@ class TestLibraryScraper < Minitest::Test
     end
   end
 
+  # --- truncated scrapes --------------------------------------------------
+
+  # Reproduces the production failure: page 1 loads, page 2 times out. Before
+  # the guard the scrape returned page 1 only, and the tracker recorded every
+  # item from the missing page as an unexpected disappearance. On 2026-08-12
+  # this hit 21.7% of Josh's scrapes (the only patron with two pages).
+  def test_checkouts_raises_when_a_later_page_fails
+    with_library_url do
+      page = PaginatedFailingPage.new(fail_from_page: 2)
+
+      error = assert_raises(LibraryScraper::IncompleteScrapeError) do
+        @scraper.send(:scrape_checkouts, page, "Josh")
+      end
+      assert_match(/page 2/i, error.message)
+    end
+  end
+
+  def test_holds_raises_when_a_later_page_fails
+    with_library_url do
+      page = PaginatedFailingPage.new(fail_from_page: 2)
+
+      assert_raises(LibraryScraper::IncompleteScrapeError) do
+        @scraper.send(:scrape_holds, page, "Josh")
+      end
+    end
+  end
+
+  # A first-page timeout is not truncation: a patron with nothing checked out
+  # legitimately has no container, and must not be reported as a failure.
+  def test_empty_first_page_does_not_raise
+    with_library_url do
+      page = PaginatedFailingPage.new(fail_from_page: 1)
+
+      assert_equal [], @scraper.send(:scrape_checkouts, page, "Josh")
+    end
+  end
+
   # --- has_next_page? -----------------------------------------------------
 
   def test_has_next_page_true_when_next_button_present
@@ -245,6 +282,15 @@ class TestLibraryScraper < Minitest::Test
   end
 
   private
+
+  # The scrape methods build URLs from LIBRARY_URL before touching the page.
+  def with_library_url
+    saved = ENV["LIBRARY_URL"]
+    ENV["LIBRARY_URL"] = "https://example.test"
+    yield
+  ensure
+    ENV["LIBRARY_URL"] = saved
+  end
 
   # Sets only the given PATRON_* vars for the block, clearing any others that
   # the loaded .env may have provided.
@@ -316,6 +362,55 @@ class TestLibraryScraper < Minitest::Test
   class RaisingPage
     def locator(_selector)
       raise "page closed"
+    end
+  end
+
+  # Serves one item on each page up to fail_from_page, then times out waiting
+  # for the container -- the shape of the real partial-scrape failure.
+  class PaginatedFailingPage
+    def initialize(fail_from_page:)
+      @fail_from_page = fail_from_page
+      @current_page = 0
+    end
+
+    def wait_for_selector(_selector, **_opts)
+      @current_page += 1
+      raise Playwright::TimeoutError.new(message: "timed out") if @current_page >= @fail_from_page
+      nil
+    end
+
+    def locator(_selector)
+      # One item per page, with no sub-elements, so extraction yields nils and
+      # the loop still records an entry.
+      FakeLocator.new(count: 1, elements: [FakeItem.new])
+    end
+
+    def goto(_url)
+      nil
+    end
+
+    def title
+      "Checkouts"
+    end
+
+    def url
+      "https://example.test/v2/checkedout"
+    end
+  end
+
+  # An item whose sub-locators are all empty; enough for the scrape loop to
+  # build a record without needing real markup.
+  class FakeItem
+    def locator(_selector)
+      FakeLocator.new(count: 0, elements: [])
+    end
+
+    def text_content(**_opts)
+      nil
+    end
+
+    def get_attribute(_name, **_opts)
+      nil
     end
   end
 end

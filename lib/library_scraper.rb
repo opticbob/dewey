@@ -6,6 +6,17 @@ require "fileutils"
 require_relative "item_tracker"
 
 class LibraryScraper
+  # Raised when a scrape cannot be completed in full. Partial results must not
+  # be recorded: the tracker compares against the previous snapshot, so a
+  # truncated list looks exactly like the missing items having disappeared.
+  class IncompleteScrapeError < StandardError; end
+
+  # Pause after loading each page, to stay polite to the library's servers.
+  # Read per call rather than at load time so tests can override it.
+  def self.page_settle_seconds
+    Float(ENV.fetch("PAGE_SETTLE_SECONDS", "2"))
+  end
+
   # Bibliocommons CSS selectors for Lawrence Public Library
   SIGN_IN_BUTTON_SELECTOR = 'a[href="/user/login"]'
   USERNAME_SELECTOR = 'input[name="name"]'
@@ -273,7 +284,7 @@ class LibraryScraper
     page.goto(checkout_url)
 
     # Wait for page to load
-    sleep(3)
+    sleep(self.class.page_settle_seconds * 1.5)
 
     @logger.debug "Checkouts page title: #{page.title}"
     @logger.debug "Checkouts page URL: #{page.url}"
@@ -294,6 +305,14 @@ class LibraryScraper
         @logger.info "Found #{checkout_items.length} checkout items on page #{current_page}"
         dump_page_html(page, "checkouts_page#{current_page}")
       rescue Playwright::TimeoutError
+        # Page 1 timing out can legitimately mean "no checkouts at all", but
+        # losing a later page means the list we have is truncated.
+        if current_page > 1
+          raise IncompleteScrapeError,
+            "Checkouts page #{current_page} did not load for #{patron_name}; " \
+            "collected #{all_checkouts.length} items before the failure"
+        end
+
         @logger.warn "No checkouts container found on page #{current_page}"
         break
       end
@@ -392,7 +411,7 @@ class LibraryScraper
         next_page_url = "#{checkout_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
         page.goto(next_page_url)
-        sleep(2)
+        sleep(self.class.page_settle_seconds)
       else
         @logger.debug "No more pages found, stopping pagination"
         break
@@ -424,7 +443,7 @@ class LibraryScraper
     page.goto(holds_url)
 
     # Wait for page to load
-    sleep(3)
+    sleep(self.class.page_settle_seconds * 1.5)
 
     @logger.debug "Holds page title: #{page.title}"
     @logger.debug "Holds page URL: #{page.url}"
@@ -445,6 +464,12 @@ class LibraryScraper
         dump_page_html(page, "holds_page#{current_page}")
         @logger.info "Found #{hold_items.length} hold items on page #{current_page}"
       rescue Playwright::TimeoutError
+        if current_page > 1
+          raise IncompleteScrapeError,
+            "Holds page #{current_page} did not load for #{patron_name}; " \
+            "collected #{all_holds.length} items before the failure"
+        end
+
         @logger.warn "No holds container found on page #{current_page}"
         break
       end
@@ -584,7 +609,7 @@ class LibraryScraper
         next_page_url = "#{holds_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
         page.goto(next_page_url)
-        sleep(2)
+        sleep(self.class.page_settle_seconds)
       else
         @logger.debug "No more pages found, stopping pagination"
         break
