@@ -6,14 +6,14 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 60px;"></th>
+                <th class="col-thumb"></th>
                 <th>Title / Author</th>
-                <th style="width: 120px;">Type</th>
-                <th style="width: 150px;">Status</th>
-                <th style="width: 100px;">Position</th>
-                <th style="width: 140px;">Checkout By</th>
+                <th class="col-type">Type</th>
+                <th class="col-status">Status</th>
+                <th class="col-position">Position</th>
+                <th class="col-checkout">Checkout By</th>
                 <% if show_patron %>
-                    <th style="width: 120px;">Patron</th>
+                    <th class="col-patron">Patron</th>
                 <% end %>
             </tr>
         </thead>
@@ -30,22 +30,22 @@
                         <% end %>
                         <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
                     </td>
-                    <td class="type-cell">
+                    <td class="type-cell" data-label="Type">
                         <span class="badge badge-type"><%= item['type'] || 'Book' %></span>
                     </td>
-                    <td class="status-cell">
+                    <td class="status-cell" data-label="Status">
                         <span class="badge <%= status_class(item['status']) %>">
                             <%= item['status'] || 'In Queue' %>
                         </span>
                     </td>
-                    <td class="position-cell">
+                    <td class="position-cell" data-label="Position">
                         <% if item['queue_position'] %>
                             <span class="queue-position">#<%= item['queue_position'] %></span>
                         <% else %>
                             <span style="color: #999;">—</span>
                         <% end %>
                     </td>
-                    <td class="checkout-cell">
+                    <td class="checkout-cell" data-label="Checkout by">
                         <% status = item['status']&.downcase&.strip || "" %>
                         <% if status == "not ready" %>
                             <span style="color: #999;">—</span>
@@ -61,7 +61,7 @@
                         <% end %>
                     </td>
                     <% if show_patron %>
-                        <td class="patron-cell">
+                        <td class="patron-cell" data-label="Patron">
                             <span class="badge badge-patron"><%= item['patron_name'] %></span>
                         </td>
                     <% end %>

@@ -338,7 +338,10 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            overflow: hidden;
+            /* Was `hidden`, which clipped wide tables with no way to reach the
+               cut-off columns. Scrolls instead; on phones the rows reflow into
+               cards below and there is nothing to scroll. */
+            overflow-x: auto;
             margin-bottom: 2rem;
         }
 
@@ -346,6 +349,16 @@
             width: 100%;
             border-collapse: collapse;
         }
+
+        /* Column widths live here rather than inline, so the mobile card
+           layout can reset them. */
+        .col-thumb { width: 60px; }
+        .col-type { width: 120px; }
+        .col-due { width: 180px; }
+        .col-status { width: 150px; }
+        .col-position { width: 100px; }
+        .col-checkout { width: 140px; }
+        .col-patron { width: 120px; }
 
         .items-table thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -499,6 +512,112 @@
 
             .title-main {
                 font-size: 0.9rem;
+            }
+
+            /* ---------------------------------------------------------------
+               Phone layout: reflow each table row into a stacked card.
+
+               The columns add up to more than a phone viewport (690px of fixed
+               widths on the holds table alone), so the table cannot shrink to
+               fit no matter how small the text gets. Instead each row becomes a
+               block: the cover and title sit at the top, and the remaining
+               cells stack underneath as label/value pairs, taking their labels
+               from the data-label attributes since the header row is hidden.
+               --------------------------------------------------------------- */
+            .items-table,
+            .items-table tbody,
+            .items-table tr,
+            .items-table td {
+                display: block;
+                width: auto;
+            }
+
+            .items-table thead {
+                /* Hidden accessibly rather than display:none, so the column
+                   names are still announced by screen readers. */
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                overflow: hidden;
+                clip: rect(0 0 0 0);
+                white-space: nowrap;
+            }
+
+            .items-table tbody tr {
+                position: relative;
+                padding: 0.85rem 1rem 0.85rem 76px;
+                min-height: 90px;
+                border-bottom: 1px solid #eee;
+            }
+
+            /* Cover art pinned to the left; the text column flows beside it.
+               Width and overflow are fixed so a broken image's alt text cannot
+               spill sideways into the title. */
+            .items-table td.thumbnail-cell {
+                position: absolute;
+                top: 0.85rem;
+                left: 1rem;
+                width: 48px;
+                height: 72px;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            .table-thumbnail {
+                /* A broken cover renders its alt text instead, which is the
+                   item title; without a hard max it lays out at the text's
+                   width and runs under the title column. */
+                display: block;
+                width: 48px;
+                max-width: 48px;
+                height: 72px;
+                overflow: hidden;
+                font-size: 0;
+                color: transparent;
+            }
+
+            .items-table td {
+                padding: 0.15rem 0;
+                border: none;
+            }
+
+            /* Long titles and authors wrap instead of forcing the row wide. */
+            .title-cell {
+                max-width: none;
+                padding-bottom: 0.4rem !important;
+            }
+
+            .title-main,
+            .title-subtitle,
+            .title-author {
+                overflow-wrap: anywhere;
+            }
+
+            /* Label/value pairs for the remaining cells. */
+            .items-table td[data-label] {
+                display: flex;
+                align-items: baseline;
+                gap: 0.5rem;
+            }
+
+            .items-table td[data-label]::before {
+                content: attr(data-label);
+                flex: 0 0 5.5rem;
+                color: #888;
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+            }
+
+            /* Column widths are meaningless once the cells are stacked. */
+            .col-thumb, .col-type, .col-due, .col-status,
+            .col-position, .col-checkout, .col-patron {
+                width: auto;
+            }
+
+            .badge {
+                padding: 0.25rem 0.6rem;
+                font-size: 0.8rem;
             }
 
             .title-author {

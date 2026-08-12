@@ -6,12 +6,12 @@
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 60px;"></th>
+                <th class="col-thumb"></th>
                 <th>Title / Author</th>
-                <th style="width: 120px;">Type</th>
-                <th style="width: 180px;">Due Date</th>
+                <th class="col-type">Type</th>
+                <th class="col-due">Due Date</th>
                 <% if show_patron %>
-                    <th style="width: 120px;">Patron</th>
+                    <th class="col-patron">Patron</th>
                 <% end %>
             </tr>
         </thead>
@@ -28,10 +28,10 @@
                         <% end %>
                         <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
                     </td>
-                    <td class="type-cell">
+                    <td class="type-cell" data-label="Type">
                         <span class="badge badge-type"><%= item['type'] || 'Book' %></span>
                     </td>
-                    <td class="due-cell">
+                    <td class="due-cell" data-label="Due">
                         <div class="<%= due_date_class(item['due_date']) %>">
                             <%= format_due_date(item['due_date']) %>
                         </div>
@@ -40,7 +40,7 @@
                         <% end %>
                     </td>
                     <% if show_patron %>
-                        <td class="patron-cell">
+                        <td class="patron-cell" data-label="Patron">
                             <span class="badge badge-patron"><%= item['patron_name'] %></span>
                         </td>
                     <% end %>
