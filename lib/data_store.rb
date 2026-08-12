@@ -344,9 +344,11 @@ class DataStore
       false
     end
 
+    # Overdue items are counted as overdue, not due soon: the two counts are
+    # mutually exclusive, so an item is only "due soon" if it is not yet due.
     items_due_soon = checkouts.count do |item|
       due_date = Time.parse(item["due_date"]).to_date
-      due_date <= due_soon_threshold
+      due_date.between?(today, due_soon_threshold)
     rescue
       false
     end

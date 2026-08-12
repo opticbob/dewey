@@ -144,14 +144,36 @@ class TestDataStore < Minitest::Test
     assert_equal 0, stats[:items_due_soon]
   end
 
-  # Documents current behaviour: items_due_soon has no lower bound, so already
-  # overdue items are counted as "due soon" as well.
-  def test_due_soon_currently_includes_overdue_items
+  # Overdue and due-soon are distinct states: an item that is already overdue
+  # must not also be counted as due soon.
+  def test_overdue_items_are_not_counted_as_due_soon
     @store.save_checkouts([checkout(item_id: "overdue", due_date: (Date.today - 5).to_s)])
 
     stats = @store.get_all_data[:stats]
     assert_equal 1, stats[:items_overdue]
+    assert_equal 0, stats[:items_due_soon]
+  end
+
+  def test_item_due_today_counts_as_due_soon_not_overdue
+    # The boundary case: due today is not yet overdue.
+    @store.save_checkouts([checkout(item_id: "today", due_date: Date.today.to_s)])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 0, stats[:items_overdue]
     assert_equal 1, stats[:items_due_soon]
+  end
+
+  def test_overdue_and_due_soon_counts_are_independent
+    @store.save_checkouts([
+      checkout(item_id: "overdue", due_date: (Date.today - 3).to_s),
+      checkout(item_id: "soon", due_date: (Date.today + 2).to_s),
+      checkout(item_id: "later", due_date: (Date.today + 30).to_s)
+    ])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 1, stats[:items_overdue]
+    assert_equal 1, stats[:items_due_soon]
+    assert_equal 3, stats[:total_checkouts]
   end
 
   def test_due_soon_respects_due_soon_days_env
