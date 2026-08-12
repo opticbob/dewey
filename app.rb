@@ -26,14 +26,60 @@ class DeweyApp < Sinatra::Base
     set :logger, logger
   end
 
+  # data_dir, the scraper and the scheduling flag are injectable so tests can
+  # drive the app without a real data directory, background timers, or a live
+  # scrape. Production keeps the previous behaviour via the defaults.
+  #
+  # The collaborators are class-level because Sinatra dups the instance for
+  # every request: anything assigned to an instance variable here would be
+  # rebuilt per request, and the scrape guard has to be shared across them.
+  class << self
+    attr_accessor :data_dir, :scraper_override, :scheduled
+  end
+  self.scheduled = true
+
   def initialize(app = nil)
     super
-    @data_store = DataStore.new("data")
-    @item_tracker = ItemTracker.new(@data_store.data_dir)
-    @scraper = LibraryScraper.new(@data_store, settings.logger)
-    @scrape_mutex = Mutex.new
+    @data_store = self.class.shared_data_store
+    @item_tracker = self.class.shared_item_tracker
+    @scraper = self.class.shared_scraper(settings.logger)
+
+    return unless self.class.scheduled && !self.class.scheduler_started
+
+    self.class.scheduler_started = true
     start_scheduler
     run_initial_scrape
+  end
+
+  class << self
+    attr_accessor :scheduler_started
+
+    def shared_data_store
+      @shared_data_store ||= DataStore.new(data_dir || ENV.fetch("DATA_DIR", "data"))
+    end
+
+    def shared_item_tracker
+      @shared_item_tracker ||= ItemTracker.new(shared_data_store.data_dir)
+    end
+
+    def shared_scraper(logger)
+      @shared_scraper ||= scraper_override || LibraryScraper.new(shared_data_store, logger)
+    end
+
+    # The guard has to outlive the per-request instances.
+    def scrape_mutex
+      @scrape_mutex ||= Mutex.new
+    end
+
+    # Test hook: drop the memoised collaborators so the next instance rebuilds
+    # them from the current data_dir / scraper_override.
+    def reset_for_test!
+      @shared_data_store = nil
+      @shared_item_tracker = nil
+      @shared_scraper = nil
+      @scrape_mutex = nil
+      @scheduler_started = nil
+    end
   end
 
   # Run a scrape unless one is already in flight.
@@ -42,18 +88,40 @@ class DeweyApp < Sinatra::Base
   # minutes), and the startup scrape can still be running when the first
   # interval fires. Overlapping runs hammer BiblioCommons and get us throttled,
   # so a second concurrent attempt is skipped rather than queued.
+  # Returns true if the scrape ran, false if one was already in flight.
   def run_scrape(reason)
-    unless @scrape_mutex.try_lock
+    # Hold onto the mutex we actually locked, so the unlock cannot land on a
+    # different object than the lock did.
+    mutex = self.class.scrape_mutex
+
+    unless mutex.try_lock
       settings.logger.warn "Skipping #{reason}: a scrape is already running"
-      return
+      return false
     end
 
     begin
       settings.logger.info reason
       @scraper.scrape_all_patrons
+    rescue => e
+      # A scrape raising here would otherwise take down the scheduler thread
+      # or the /refresh worker without a trace. Individual patron failures are
+      # already handled inside scrape_all_patrons; this catches anything above
+      # that, such as a failure to launch the browser at all.
+      settings.logger.error "Scrape failed: #{e.class}: #{e.message}"
     ensure
-      @scrape_mutex.unlock
+      mutex.unlock if mutex.owned?
     end
+
+    true
+  end
+
+  # True when a scrape is in flight. Only a hint for the UI -- by the time a
+  # caller acts on it the answer may have changed, so run_scrape still has to
+  # do the real check.
+  def scrape_running?
+    return true unless self.class.scrape_mutex.try_lock
+    self.class.scrape_mutex.unlock
+    false
   end
 
   # Web Dashboard Routes
@@ -120,16 +188,37 @@ class DeweyApp < Sinatra::Base
     json({
       status: "ok",
       timestamp: Time.now.iso8601,
-      last_scrape: @data_store.get_last_scrape_time
+      last_scrape: @data_store.get_last_scrape_time,
+      scrape_running: scrape_running?
     })
   end
 
-  # Manual refresh endpoint
+  # Manual refresh endpoint.
+  #
+  # Goes through run_scrape rather than calling the scraper directly, so a
+  # manual refresh that lands while a scheduled scrape is running is skipped
+  # instead of starting a second concurrent login. Two scrapes at once make
+  # the library log us out mid-run, which showed up as spurious "Login failed"
+  # and timeout errors.
   post "/refresh" do
-    Thread.new do
-      @scraper.scrape_all_patrons
+    already_running = scrape_running?
+
+    unless already_running
+      Thread.new { run_scrape("Starting manual scrape") }
     end
-    redirect "/"
+
+    # The dashboard posts this as a plain form, so browsers get a redirect;
+    # API callers get the outcome.
+    if request.accept?("text/html") && !request.xhr?
+      redirect "/"
+    else
+      status(already_running ? 409 : 202)
+      json({
+        status: already_running ? "already_running" : "started",
+        message: already_running ? "A scrape is already in progress" : "Scrape started",
+        timestamp: Time.now.iso8601
+      })
+    end
   end
 
   # Manual thumbnail cleanup endpoint

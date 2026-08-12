@@ -11,6 +11,13 @@ $LOAD_PATH.unshift(File.expand_path("../lib", __dir__))
 # Skip the scraper's politeness delay between pages; tests drive fake pages.
 ENV["PAGE_SETTLE_SECONDS"] ||= "0"
 
+# Safety net: the repo's .env holds live library credentials, and dotenv loads
+# it into any process that requires app.rb. A test that accidentally reaches
+# the real scraper would then log in to the library for real. Clearing the
+# credentials here means such a test fails loudly instead.
+ENV.keys.grep(/^PATRON_/).each { |k| ENV.delete(k) }
+ENV["LIBRARY_URL"] = "https://library.invalid"
+
 require "data_store"
 require "item_tracker"
 

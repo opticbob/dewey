@@ -16,6 +16,7 @@ group :development, :test do
   gem "standard", "~> 1.35"
   gem "minitest", "~> 5.27"
   gem "rake", "~> 13.2"
+  gem "rack-test", "~> 2.2"
 end
 
 gem "rackup", "~> 2.3"
