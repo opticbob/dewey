@@ -6,8 +6,8 @@
 - `bundle install` - Install Ruby dependencies
 - `bundle exec ruby app.rb` - Start development server
 - `bundle exec rerun ruby app.rb` - Start development server with auto-reload
-- `bundle exec standard` - Run StandardRB linting
-- `bundle exec standard --fix` - Auto-fix StandardRB issues
+- `bundle exec standardrb` - Run StandardRB linting
+- `bundle exec standardrb --fix` - Auto-fix StandardRB issues
 
 ### Docker
 - `docker build -t dewey .` - Build Docker image locally
@@ -17,6 +17,32 @@
 
 ### Testing
 - `bundle exec ruby -Ilib -Itest test/test_*.rb` - Run tests (if implemented)
+
+### Playwright Setup (local development)
+
+The scraper drives a real browser via `npx playwright`, so the Playwright **npm
+package** must be installed separately from the gem — `bundle install` alone is
+not enough.
+
+```bash
+npm install -g playwright@1.57.0   # must match the gem's COMPATIBLE_PLAYWRIGHT_VERSION
+playwright install chromium        # downloads the browser binary
+```
+
+**Version pairing matters.** The `playwright-ruby-client` gem talks to the npm
+driver over a private protocol and declares the exact version it expects in
+`Playwright::COMPATIBLE_PLAYWRIGHT_VERSION`. To find the required npm version:
+
+```bash
+ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
+```
+
+Note that the gem and npm versions are *not* always identical — gem 1.57.1 is a
+gem-only patch release that pairs with npm 1.57.0 (no npm 1.57.1 exists). Always
+use the constant above rather than assuming the versions match. A mismatch is not
+caught with a friendly error; it surfaces as an obscure protocol failure at scrape
+time. When bumping the gem, update the pinned npm version in `Dockerfile` and
+`Dockerfile.dev` to match.
 
 ## Environment Variables
 

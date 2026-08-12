@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
+# Must match Playwright::COMPATIBLE_PLAYWRIGHT_VERSION from the playwright-ruby-client gem
 RUN npm init -y \
     && npm install playwright@1.57.0 \
     && npx playwright install chromium

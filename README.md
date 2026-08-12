@@ -177,18 +177,40 @@ cp .env.example .env
 # Install dependencies
 bundle install
 
+# Install the Playwright browser driver (see note below)
+npm install -g playwright@1.57.0
+playwright install chromium
+
 # Start development server with auto-reload
 bundle exec rerun ruby app.rb
 ```
+
+### Playwright Versions
+
+The scraper launches a browser through `npx playwright`, so the Playwright npm
+package is required in addition to the gem. The `playwright-ruby-client` gem
+speaks a private protocol to that driver and pins the version it supports:
+
+```bash
+# Prints the npm version the installed gem requires
+ruby -e 'require "playwright"; puts Playwright::COMPATIBLE_PLAYWRIGHT_VERSION'
+```
+
+The gem and npm version numbers do not always line up — gem `1.57.1` pairs with
+npm `1.57.0`, since `1.57.1` was a gem-only release. Install whatever the command
+above reports. A mismatched driver fails with a confusing protocol error during
+scraping rather than a clear version warning, so it is worth getting right up
+front. The same version is pinned in `Dockerfile` and `Dockerfile.dev`; keep all
+three in sync when upgrading.
 
 ### Running StandardRB
 
 ```bash
 # Check code style
-bundle exec standard
+bundle exec standardrb
 
 # Auto-fix style issues
-bundle exec standard --fix
+bundle exec standardrb --fix
 ```
 
 ### Building Docker Image Locally
@@ -393,7 +415,7 @@ dewey/
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature-name`
 3. Make your changes and test thoroughly
-4. Run StandardRB: `bundle exec standard`
+4. Run StandardRB: `bundle exec standardrb`
 5. Commit your changes: `git commit -am 'Add new feature'`
 6. Push to the branch: `git push origin feature-name`
 7. Create a Pull Request

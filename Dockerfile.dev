@@ -30,8 +30,9 @@ COPY Gemfile ./
 RUN bundle install
 
 # Install Playwright and browsers
+# Must match Playwright::COMPATIBLE_PLAYWRIGHT_VERSION from the playwright-ruby-client gem
 RUN npm init -y \
-    && npm install playwright@1.46.0 \
+    && npm install playwright@1.57.0 \
     && npx playwright install --with-deps chromium
 
 # Create data directory
