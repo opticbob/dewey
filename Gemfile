@@ -11,9 +11,11 @@ gem "httparty", "~> 0.22"
 gem "mini_magick", "~> 5.0"
 gem "sqlite3", "~> 2.5"
 
-group :development do
+group :development, :test do
   gem "rerun", "~> 0.14"
   gem "standard", "~> 1.35"
+  gem "minitest", "~> 5.25"
+  gem "rake", "~> 13.2"
 end
 
 gem "rackup", "~> 2.3"

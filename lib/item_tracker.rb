@@ -176,6 +176,10 @@ class ItemTracker
     ).map { |row| row["item_id"] }
   end
 
+  def close
+    @db&.close
+  end
+
   private
 
   def determine_checkout_state(item)
@@ -338,9 +342,5 @@ class ItemTracker
 
     # Unexpected state change
     [false, "Unexpected state change: #{from} → #{to}"]
-  end
-
-  def close
-    @db.close if @db
   end
 end

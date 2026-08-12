@@ -1,0 +1,197 @@
+require_relative "test_helper"
+
+class TestDataStore < Minitest::Test
+  include TempDataDir
+
+  def setup
+    super
+    @store = DataStore.new(@tmp_dir)
+  end
+
+  def test_initializes_data_files_and_thumbnail_dir
+    assert File.directory?(File.join(@tmp_dir, "thumbnails"))
+    %w[checkouts.json holds.json scrape_log.json missing_items_log.json].each do |f|
+      assert File.exist?(File.join(@tmp_dir, f)), "#{f} should be created"
+    end
+  end
+
+  def test_empty_store_returns_empty_collections
+    assert_empty @store.get_checkouts
+    assert_empty @store.get_holds
+  end
+
+  def test_save_and_read_checkouts_roundtrip
+    @store.save_checkouts([checkout(item_id: "1", title: "Dune")])
+
+    result = @store.get_checkouts
+    assert_equal 1, result.length
+    assert_equal "Dune", result.first["title"]
+  end
+
+  def test_save_and_read_holds_roundtrip
+    @store.save_holds([hold(item_id: "h1", title: "Neuromancer")])
+
+    result = @store.get_holds
+    assert_equal "Neuromancer", result.first["title"]
+  end
+
+  def test_checkouts_sorted_by_due_date
+    @store.save_checkouts([
+      checkout(item_id: "late", due_date: (Date.today + 20).to_s),
+      checkout(item_id: "soon", due_date: (Date.today + 1).to_s),
+      checkout(item_id: "mid", due_date: (Date.today + 10).to_s)
+    ])
+
+    ids = @store.get_all_data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[soon mid late], ids
+  end
+
+  def test_checkouts_with_unparseable_due_date_sort_last
+    @store.save_checkouts([
+      checkout(item_id: "bad", due_date: "not a date"),
+      checkout(item_id: "good", due_date: (Date.today + 5).to_s)
+    ])
+
+    ids = @store.get_all_data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[good bad], ids
+  end
+
+  def test_holds_ordered_ready_then_waiting_then_paused
+    @store.save_holds([
+      hold(item_id: "paused", status: "paused", queue_position: 1),
+      hold(item_id: "waiting", status: "not ready", queue_position: 2),
+      hold(item_id: "ready", status: "ready", checkout_by: (Date.today + 3).to_s)
+    ])
+
+    ids = @store.get_all_data[:holds].map { |i| i["item_id"] }
+    assert_equal %w[ready waiting paused], ids
+  end
+
+  def test_waiting_holds_sorted_by_queue_position
+    @store.save_holds([
+      hold(item_id: "third", status: "not ready", queue_position: 3),
+      hold(item_id: "first", status: "not ready", queue_position: 1),
+      hold(item_id: "no_position", status: "not ready")
+    ])
+
+    ids = @store.get_all_data[:holds].map { |i| i["item_id"] }
+    assert_equal %w[first third no_position], ids
+  end
+
+  def test_not_ready_status_is_not_treated_as_ready
+    # "not ready" contains the word "ready"; it must not be classified as ready.
+    @store.save_holds([
+      hold(item_id: "waiting", status: "not ready", queue_position: 5),
+      hold(item_id: "ready", status: "ready")
+    ])
+
+    ids = @store.get_all_data[:holds].map { |i| i["item_id"] }
+    assert_equal "ready", ids.first
+  end
+
+  def test_get_patron_data_filters_by_patron
+    @store.save_checkouts([
+      checkout(item_id: "1", patron_name: "Josh"),
+      checkout(item_id: "2", patron_name: "Jett")
+    ])
+    @store.save_holds([hold(item_id: "h1", patron_name: "Jett")])
+
+    data = @store.get_patron_data("Jett")
+    assert_equal ["2"], data[:checkouts].map { |i| i["item_id"] }
+    assert_equal ["h1"], data[:holds].map { |i| i["item_id"] }
+    assert_equal "Jett", data[:patron_name]
+  end
+
+  def test_stats_count_totals_and_patrons
+    @store.save_checkouts([
+      checkout(item_id: "1", patron_name: "Josh"),
+      checkout(item_id: "2", patron_name: "Jett")
+    ])
+    @store.save_holds([hold(item_id: "h1", patron_name: "Josh")])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 2, stats[:total_checkouts]
+    assert_equal 1, stats[:total_holds]
+    assert_equal %w[Jett Josh], stats[:patrons]
+  end
+
+  def test_stats_split_digital_and_physical
+    @store.save_checkouts([
+      checkout(item_id: "1", type: "eBook"),
+      checkout(item_id: "2", type: "eAudiobook"),
+      checkout(item_id: "3", type: "Book")
+    ])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 2, stats[:digital_checkouts]
+    assert_equal 1, stats[:physical_checkouts]
+  end
+
+  def test_stats_count_overdue_items
+    @store.save_checkouts([
+      checkout(item_id: "overdue", due_date: (Date.today - 2).to_s),
+      checkout(item_id: "fine", due_date: (Date.today + 30).to_s)
+    ])
+
+    assert_equal 1, @store.get_all_data[:stats][:items_overdue]
+  end
+
+  def test_stats_ignore_unparseable_due_dates
+    @store.save_checkouts([checkout(item_id: "bad", due_date: "whenever")])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 0, stats[:items_overdue]
+    assert_equal 0, stats[:items_due_soon]
+  end
+
+  # Documents current behaviour: items_due_soon has no lower bound, so already
+  # overdue items are counted as "due soon" as well.
+  def test_due_soon_currently_includes_overdue_items
+    @store.save_checkouts([checkout(item_id: "overdue", due_date: (Date.today - 5).to_s)])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 1, stats[:items_overdue]
+    assert_equal 1, stats[:items_due_soon]
+  end
+
+  def test_due_soon_respects_due_soon_days_env
+    original = ENV["DUE_SOON_DAYS"]
+    ENV["DUE_SOON_DAYS"] = "2"
+
+    @store.save_checkouts([
+      checkout(item_id: "within", due_date: (Date.today + 1).to_s),
+      checkout(item_id: "outside", due_date: (Date.today + 10).to_s)
+    ])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 1, stats[:items_due_soon]
+    assert_equal 2, stats[:due_soon_days]
+  ensure
+    ENV["DUE_SOON_DAYS"] = original
+  end
+
+  def test_log_scrape_attempt_records_success_and_failure
+    @store.log_scrape_attempt("Josh", true, {checkouts: 3, holds: 1})
+    @store.log_scrape_attempt("Jett", false, {}, "login failed")
+
+    failures = @store.get_recent_scrape_failures
+    assert_equal 1, failures.length
+    assert_equal "login failed", failures.first["error_message"]
+  end
+
+  def test_get_last_scrape_time_reflects_latest_successful_scrape
+    assert_nil @store.get_last_scrape_time
+
+    @store.log_scrape_attempt("Josh", true, {checkouts: 1})
+    refute_nil @store.get_last_scrape_time
+  end
+
+  def test_thumbnail_save_and_exists
+    refute @store.thumbnail_exists?("abc")
+
+    @store.save_thumbnail("abc", "fake-image-bytes")
+
+    assert @store.thumbnail_exists?("abc")
+    assert_equal "fake-image-bytes", File.read(@store.get_thumbnail_path("abc"))
+  end
+end
