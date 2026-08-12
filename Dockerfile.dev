@@ -23,8 +23,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
 # Set working directory
 WORKDIR /app
 
-# Copy Gemfile first
-COPY Gemfile ./
+# Copy Gemfile and lockfile first, so gem versions match the lockfile
+COPY Gemfile Gemfile.lock ./
 
 # Install Ruby gems (development mode for testing)
 RUN bundle install
