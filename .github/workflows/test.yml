@@ -21,6 +21,13 @@ jobs:
         ruby-version: '3.4.8'
         bundler-cache: true
 
+    # The extraction tests parse saved markup in a real browser. Without this
+    # they skip, so install the same driver version the gem expects.
+    - name: Install Playwright browser
+      run: |
+        npm install -g playwright@$(ruby -e 'require "playwright"; print Playwright::COMPATIBLE_PLAYWRIGHT_VERSION')
+        playwright install --with-deps chromium
+
     - name: Run tests
       run: bundle exec rake test
 

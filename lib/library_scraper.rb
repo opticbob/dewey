@@ -2,6 +2,7 @@ require "playwright"
 require "httparty"
 require "digest"
 require "uri"
+require "fileutils"
 require_relative "item_tracker"
 
 class LibraryScraper
@@ -291,6 +292,7 @@ class LibraryScraper
         page.wait_for_selector(CHECKOUTS_CONTAINER_SELECTOR, timeout: 5000)
         checkout_items = page.locator(CHECKOUT_ITEM_SELECTOR).all
         @logger.info "Found #{checkout_items.length} checkout items on page #{current_page}"
+        dump_page_html(page, "checkouts_page#{current_page}")
       rescue Playwright::TimeoutError
         @logger.warn "No checkouts container found on page #{current_page}"
         break
@@ -440,6 +442,7 @@ class LibraryScraper
       begin
         page.wait_for_selector(HOLDS_CONTAINER_SELECTOR, timeout: 5000)
         hold_items = page.locator(HOLD_ITEM_SELECTOR).all
+        dump_page_html(page, "holds_page#{current_page}")
         @logger.info "Found #{hold_items.length} hold items on page #{current_page}"
       rescue Playwright::TimeoutError
         @logger.warn "No holds container found on page #{current_page}"
@@ -722,6 +725,21 @@ class LibraryScraper
   # two payloads (A/B/A/B...) forever, so comparing only against the previous
   # page never trips. Callers therefore track every fingerprint seen and stop
   # on any repeat, regardless of what the pagination controls claim.
+  # Writes the raw HTML of the current page to DUMP_HTML_DIR, for capturing
+  # fixtures from a real scrape. Inert unless the env var is set. The dumps
+  # contain live account data and must be scrubbed before being shared.
+  def dump_page_html(page, label)
+    dir = ENV["DUMP_HTML_DIR"]
+    return unless dir && !dir.empty?
+
+    FileUtils.mkdir_p(dir)
+    path = File.join(dir, "#{label}.html")
+    File.write(path, page.content)
+    @logger.info "Dumped page HTML to #{path}"
+  rescue => e
+    @logger.warn "Could not dump page HTML (#{label}): #{e.message}"
+  end
+
   def page_fingerprint(items)
     items.map { |item| "#{item["title"]}|#{item["author"]}|#{item["item_id"]}" }.join("\n")
   end
