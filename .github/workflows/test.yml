@@ -25,8 +25,19 @@ jobs:
     # they skip, so install the same driver version the gem expects.
     - name: Install Playwright browser
       run: |
-        npm install -g playwright@$(ruby -e 'require "playwright"; print Playwright::COMPATIBLE_PLAYWRIGHT_VERSION')
+        # bundle exec: with bundler-cache the gems live in vendor/bundle, so a
+        # bare `ruby -e` cannot require the gem and the version comes back empty.
+        VERSION=$(bundle exec ruby -e 'require "playwright"; print Playwright::COMPATIBLE_PLAYWRIGHT_VERSION')
+        test -n "$VERSION" || { echo "Could not resolve Playwright version"; exit 1; }
+        echo "Installing Playwright driver $VERSION to match the gem"
+        npm install -g "playwright@${VERSION}"
         playwright install --with-deps chromium
+        # A mismatched driver makes the extraction tests skip rather than fail,
+        # which would quietly drop that coverage; fail the build instead.
+        playwright --version | grep -q "$VERSION" || {
+          echo "Driver version mismatch: expected $VERSION, got $(playwright --version)"
+          exit 1
+        }
 
     - name: Run tests
       run: bundle exec rake test

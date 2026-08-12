@@ -32,31 +32,40 @@ class TestScraperExtraction < Minitest::Test
     super
   end
 
-  # Loads a fixture in a real browser and yields the page.
-  def with_fixture(name)
-    skip "Playwright browser not available" unless browser_available?
+  # CI runners cannot use Chromium's sandbox, and it hangs rather than failing
+  # cleanly without these.
+  LAUNCH_ARGS = ["--no-sandbox", "--disable-dev-shm-usage"].freeze
 
-    Playwright.create(playwright_cli_executable_path: "npx playwright") do |playwright|
-      playwright.chromium.launch(headless: true) do |browser|
-        page = browser.new_page
-        page.goto("file://#{File.join(FIXTURE_DIR, name)}")
-        yield page
+  # One browser is shared by the whole class: launching per test multiplied the
+  # startup cost by the test count for no benefit.
+  def self.browser_session
+    return @browser_session if defined?(@browser_session)
+
+    @browser_session = begin
+      execution = Playwright.create(playwright_cli_executable_path: "npx playwright")
+      browser = execution.playwright.chromium.launch(headless: true, args: LAUNCH_ARGS)
+      Minitest.after_run do
+        browser.close
+        execution.stop
       end
+      browser
+    rescue => e
+      warn "Playwright unavailable, skipping extraction tests: #{e.message}"
+      nil
     end
   end
 
-  def browser_available?
-    cls = self.class
-    return cls.playwright_available unless cls.playwright_available.nil?
+  # Loads a fixture in a real browser and yields the page.
+  def with_fixture(name)
+    browser = self.class.browser_session
+    skip "Playwright browser not available" unless browser
 
-    cls.playwright_available = begin
-      Playwright.create(playwright_cli_executable_path: "npx playwright") do |playwright|
-        playwright.chromium.launch(headless: true) { |b| b.contexts }
-      end
-      true
-    rescue => e
-      warn "Playwright unavailable, skipping extraction tests: #{e.message}"
-      false
+    page = browser.new_page
+    begin
+      page.goto("file://#{File.join(FIXTURE_DIR, name)}")
+      yield page
+    ensure
+      page.close
     end
   end
 
