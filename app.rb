@@ -16,7 +16,7 @@ class DeweyApp < Sinatra::Base
     enable :logging
 
     # Set up logger
-    logger = Logger.new(STDOUT)
+    logger = Logger.new($stdout)
     logger.level = case ENV["LOG_LEVEL"]&.upcase
     when "DEBUG" then Logger::DEBUG
     when "WARN" then Logger::WARN
@@ -103,14 +103,11 @@ class DeweyApp < Sinatra::Base
 
   get "/api/transitions" do
     days_back = params[:days]&.to_i || 7
-    unexpected_only = params[:unexpected] == "true"
 
-    if unexpected_only
-      transitions = @item_tracker.get_unexpected_transitions(days_back)
-    else
-      # Could add a method to get all transitions if needed
-      transitions = @item_tracker.get_unexpected_transitions(days_back)
-    end
+    # NOTE: both branches are the same today - ItemTracker only exposes
+    # unexpected transitions. The `unexpected` param is accepted for
+    # forward compatibility until a get_all_transitions method exists.
+    transitions = @item_tracker.get_unexpected_transitions(days_back)
 
     json({
       transitions: transitions,
@@ -231,13 +228,13 @@ class DeweyApp < Sinatra::Base
           "#{seconds_ago} seconds ago"
         elsif seconds_ago < 3600
           minutes = seconds_ago / 60
-          "#{minutes} #{minutes == 1 ? 'minute' : 'minutes'} ago"
+          "#{minutes} #{(minutes == 1) ? "minute" : "minutes"} ago"
         elsif seconds_ago < 86400
           hours = seconds_ago / 3600
-          "#{hours} #{hours == 1 ? 'hour' : 'hours'} ago"
+          "#{hours} #{(hours == 1) ? "hour" : "hours"} ago"
         else
           days = seconds_ago / 86400
-          "#{days} #{days == 1 ? 'day' : 'days'} ago"
+          "#{days} #{(days == 1) ? "day" : "days"} ago"
         end
       rescue
         "unknown"

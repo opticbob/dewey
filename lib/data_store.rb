@@ -187,18 +187,14 @@ class DataStore
     # Get scrapes from the last 24 hours
     cutoff_time = Time.now - (24 * 60 * 60)
 
-    recent_failures = log_data["scrapes"]
+    log_data["scrapes"]
       .select { |scrape| !scrape["success"] }
       .select do |scrape|
-        begin
-          Time.parse(scrape["timestamp"]) > cutoff_time
-        rescue
-          false
-        end
+        Time.parse(scrape["timestamp"]) > cutoff_time
+    rescue
+      false
       end
       .reverse # Most recent first
-
-    recent_failures
   end
 
   def get_thumbnail_path(item_id)
@@ -241,11 +237,9 @@ class DataStore
   def sort_checkouts(checkouts)
     # Sort by due date (earliest first)
     checkouts.sort_by do |item|
-      begin
-        Time.parse(item["due_date"])
-      rescue
-        Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end (1 year from now)
-      end
+      Time.parse(item["due_date"])
+    rescue
+      Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end (1 year from now)
     end
   end
 

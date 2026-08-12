@@ -1,7 +1,6 @@
 require "playwright"
 require "httparty"
 require "digest"
-require "set"
 require "uri"
 require_relative "item_tracker"
 
@@ -332,8 +331,6 @@ class LibraryScraper
             # Check if thumbnail exists first to avoid timeout
             if img_locator.count > 0
               img_locator.first.get_attribute("src", timeout: 1000)
-            else
-              nil
             end
           rescue
             nil
@@ -474,8 +471,6 @@ class LibraryScraper
             if date_element.count > 0
               date_text = date_element.text_content(timeout: 1000)&.strip
               parse_due_date(date_text) if date_text && !date_text.empty?
-            else
-              nil
             end
           rescue => e
             @logger.debug "    Could not extract checkout_by date: #{e.message}"
@@ -488,8 +483,6 @@ class LibraryScraper
             if date_element.count > 0
               date_text = date_element.text_content(timeout: 1000)&.strip
               parse_due_date(date_text) if date_text && !date_text.empty?
-            else
-              nil
             end
           rescue => e
             @logger.debug "    Could not extract expires_on date: #{e.message}"
@@ -521,8 +514,6 @@ class LibraryScraper
             # Check if thumbnail exists first to avoid timeout
             if img_locator.count > 0
               img_locator.first.get_attribute("src", timeout: 1000)
-            else
-              nil
             end
           rescue
             nil
