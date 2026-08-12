@@ -325,6 +325,9 @@
             font-family: monospace;
             font-size: 0.85rem;
             color: #333;
+            /* Scraper errors are long single-line strings; without this they
+               stretch the banner and push the whole page sideways on a phone. */
+            overflow-wrap: anywhere;
         }
 
         .alert-banner-time {
