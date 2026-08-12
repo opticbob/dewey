@@ -17,6 +17,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Required for the provenance attestation, which signs via OIDC
+      id-token: write
+      attestations: write
 
     steps:
     - name: Checkout repository
