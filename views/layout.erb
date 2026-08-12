@@ -534,13 +534,21 @@
 
             .items-table thead {
                 /* Hidden accessibly rather than display:none, so the column
-                   names are still announced by screen readers. */
+                   names are still announced by screen readers. clip-path plus
+                   a 1px box keeps the cells out of the scrollable area --
+                   the older `clip: rect(...)` left them contributing their
+                   full width to the page and caused sideways overflow. */
                 position: absolute;
                 width: 1px;
                 height: 1px;
                 overflow: hidden;
-                clip: rect(0 0 0 0);
+                clip-path: inset(50%);
                 white-space: nowrap;
+            }
+
+            .items-table thead th {
+                width: auto;
+                padding: 0;
             }
 
             .items-table tbody tr {
