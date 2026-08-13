@@ -16,7 +16,28 @@
 - `docker-compose down` - Stop and remove containers
 
 ### Testing
-- `bundle exec ruby -Ilib -Itest test/test_*.rb` - Run tests (if implemented)
+- `bundle exec rake test` - Run the full suite
+- `bundle exec ruby -Ilib -Itest test/test_item_tracker.rb` - Run one file
+
+The extraction tests drive a real browser over saved fixtures; they skip if
+no Playwright browser is installed, so check for skips before trusting a
+green run.
+
+## Changelog
+
+Every commit that changes behaviour must add an entry to `CHANGELOG.md` in
+the same commit, so the file never has to be reconstructed from `git log`.
+
+- Entries are grouped by the date the work lands, newest first, under
+  **Added**, **Fixed** or **Changed**. The project is not versioned, so there
+  are no release headings.
+- Write what changed for someone using Dewey, not which files moved. "Holds
+  pagination no longer fails for a patron whose holds exactly fill a page"
+  beats "update NEXT_BUTTON_SELECTOR".
+- For a fix, say what was going wrong. The symptom is the useful part.
+- Skip entries for changes with no observable effect: refactors, comment
+  edits, test-only changes, formatting.
+- Add to the existing dated section if one is already open for today.
 
 ### Playwright Setup (local development)
 
