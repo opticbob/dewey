@@ -42,11 +42,19 @@
             flex-wrap: wrap;
         }
 
+        /* An anchor back to the dashboard, styled as the heading it replaced:
+           inherit rather than take the default link colour and underline. */
         .logo {
             font-size: 2rem;
             font-weight: bold;
             display: flex;
             align-items: center;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .logo:hover {
+            opacity: 0.85;
         }
 
         .logo::before {
@@ -800,9 +808,9 @@
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">
+                <a href="/" class="logo">
                     Dewey Library Tracker
-                </div>
+                </a>
                 <nav class="nav-links">
                     <a href="/">Dashboard</a>
                     <% if @data && @data[:stats] && @data[:stats][:patrons] %>

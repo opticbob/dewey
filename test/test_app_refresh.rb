@@ -113,6 +113,15 @@ class TestAppRefresh < Minitest::Test
     refute_includes last_response.body, "<details class=\"alert-banner\" open"
   end
 
+  def test_site_title_links_to_the_dashboard
+    ["/", "/patron/Josh"].each do |path|
+      get path
+
+      assert_match(/<a href="\/" class="logo">/, last_response.body,
+        "#{path} title should link to the dashboard")
+    end
+  end
+
   # The control is a real anchor to #top, so it still works if the script
   # does not run; the JS only handles showing and hiding it.
   def test_back_to_top_link_is_present_with_an_anchor_target
