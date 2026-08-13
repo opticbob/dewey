@@ -113,6 +113,32 @@ class TestAppRefresh < Minitest::Test
     refute_includes last_response.body, "<details class=\"alert-banner\" open"
   end
 
+  # Timestamps are stored in the process's zone (UTC in the container), so a
+  # time rendered straight from the string read hours off. The process runs in
+  # the household's zone and the rendered time carries its abbreviation.
+  def test_last_updated_renders_in_the_local_zone
+    seed_items
+
+    get "/"
+
+    assert_match(/Last updated: \w+ \d+, \d{4} at \d{1,2}:\d{2} [AP]M [A-Z]{2,5}/,
+      last_response.body, "timestamp should be formatted with a zone")
+  end
+
+  # 22:10 UTC is 5:10 PM US Central during daylight saving. Rendering the
+  # stored string without converting would show 10:10 PM.
+  def test_a_utc_timestamp_renders_as_central
+    store = DeweyApp.shared_data_store
+    store.save_checkouts([])
+    path = File.join(@tmp_dir, "checkouts.json")
+    File.write(path, JSON.generate({"checkouts" => [], "last_updated" => "2026-08-12T22:10:49+00:00"}))
+
+    get "/"
+
+    assert_includes last_response.body, "5:10 PM CDT"
+    refute_includes last_response.body, "10:10 PM"
+  end
+
   def test_site_title_links_to_the_dashboard
     ["/", "/patron/Josh"].each do |path|
       get path

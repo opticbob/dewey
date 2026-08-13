@@ -93,6 +93,11 @@ Optional configuration:
 - `DUE_SOON_DAYS=5` - Number of days to consider items "due soon"
 - `THUMBNAIL_RETENTION_DAYS=90` - Delete thumbnails not seen in X days
 - `LOG_LEVEL=INFO` - Logging level: DEBUG, INFO, WARN, ERROR
+- `DISPLAY_TIME_ZONE=America/Chicago` - Zone for displayed times. The
+  container has no timezone set and would otherwise show UTC. An explicit
+  `TZ` takes precedence.
+- `MISSING_SCRAPES_BEFORE_REMOVAL=3` - Consecutive scrapes that may miss an
+  item before it is dropped from the interface
 
 ## API Endpoints
 

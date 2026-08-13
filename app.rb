@@ -10,6 +10,16 @@ require_relative "lib/library_scraper"
 require_relative "lib/item_tracker"
 
 class DeweyApp < Sinatra::Base
+  # Run the process in the household's zone so timestamps render as local
+  # time. The container has no TZ set and defaults to UTC, which made "last
+  # updated" read several hours off.
+  #
+  # Set once at load, before anything reads the clock, and never changed
+  # afterwards: ENV is global and Puma serves requests on multiple threads.
+  # An explicit TZ in the environment wins, so a deployment elsewhere can
+  # override it without touching the code.
+  ENV["TZ"] ||= ENV.fetch("DISPLAY_TIME_ZONE", "America/Chicago")
+
   configure do
     set :public_folder, "public"
     set :views, "views"
@@ -301,11 +311,23 @@ class DeweyApp < Sinatra::Base
       return "Unknown" unless timestamp_str
 
       begin
-        timestamp = Time.parse(timestamp_str)
-        timestamp.strftime("%B %d, %Y at %I:%M %p")
+        timestamp = in_display_zone(Time.parse(timestamp_str))
+        timestamp.strftime("%B %d, %Y at %-I:%M %p %Z")
       rescue
         timestamp_str
       end
+    end
+
+    # Timestamps are stored with whatever offset the process runs in, which in
+    # the container is UTC, so times rendered straight from the string read
+    # hours off. Show them in the household's zone instead.
+    #
+    # TZ is set once at boot (see DeweyApp.configure_time_zone) rather than
+    # swapped per call: ENV is global and Puma serves requests on several
+    # threads, so toggling it here would let one request change another's
+    # clock mid-render.
+    def in_display_zone(time)
+      time.getlocal
     end
 
     def relative_time(timestamp_str)

@@ -9,6 +9,13 @@ says what changed from a user's point of view, not which files moved.
 
 ## 2026-08-13
 
+### Fixed
+
+- **Times displayed in UTC.** The container runs without a timezone set, so
+  "Last updated" and scrape times read several hours off — 22:10 rather than
+  5:10 PM. Times now render in US Central with the zone shown, and follow
+  daylight saving. Set `DISPLAY_TIME_ZONE` (or `TZ`) to use a different zone.
+
 ### Changed
 
 - The site title in the header links back to the dashboard from any page.
