@@ -10,7 +10,13 @@ class TestItemTracker < Minitest::Test
 
   # Runs a scrape the way the scraper does: detect transitions against the
   # stored snapshot first, then record the new snapshot.
-  def scrape(checkouts, holds, patron_name: "Josh", scraped_at: Time.now.iso8601)
+  #
+  # Each call gets a distinct timestamp. Time.now.iso8601 has second
+  # resolution, so successive scrapes in a test would otherwise share one and
+  # be treated as the same run.
+  def scrape(checkouts, holds, patron_name: "Josh", scraped_at: nil)
+    @scrape_seq = (@scrape_seq || 0) + 1
+    scraped_at ||= (Time.now + @scrape_seq).iso8601
     @tracker.detect_transitions(checkouts, holds, patron_name, scraped_at)
     @tracker.record_snapshot(checkouts, holds, patron_name, scraped_at)
   end
@@ -134,6 +140,69 @@ class TestItemTracker < Minitest::Test
 
     rows = query("SELECT * FROM item_snapshots")
     assert_empty rows, "items for a different patron should not be snapshotted"
+  end
+
+  # An item missing across several scrapes used to record one disappearance
+  # per scrape, because detection only ever compared against the previous
+  # snapshot and had no memory of having already reported it.
+  def test_a_missing_item_is_only_reported_once
+    scrape([checkout(item_id: "1")], [])
+    3.times { scrape([], []) }
+
+    gone = transitions.select { |t| t["transition_type"] == "disappeared" }
+    assert_equal 1, gone.length, "one disappearance, not one per scrape"
+  end
+
+  def test_missing_scrape_count_increments_while_absent
+    scrape([checkout(item_id: "1")], [])
+    assert_equal 0, @tracker.missing_scrape_count("1", "Josh")
+
+    scrape([], [])
+    assert_equal 1, @tracker.missing_scrape_count("1", "Josh")
+
+    scrape([], [])
+    assert_equal 2, @tracker.missing_scrape_count("1", "Josh")
+  end
+
+  # A scrape that finds nothing writes no snapshot rows, so the run has to be
+  # recorded separately or there is no evidence it happened.
+  def test_empty_scrapes_are_still_counted
+    scrape([checkout(item_id: "1")], [])
+    2.times { scrape([], []) }
+
+    assert_equal 2, @tracker.missing_scrape_count("1", "Josh")
+  end
+
+  def test_returning_item_is_recorded_and_clears_missing
+    scrape([checkout(item_id: "1")], [])
+    2.times { scrape([], []) }
+    assert_equal 1, @tracker.missing_items("Josh").length
+
+    scrape([checkout(item_id: "1")], [])
+
+    assert_empty @tracker.missing_items("Josh")
+    assert_equal 1, transitions.count { |t| t["transition_type"] == "reappeared" }
+    assert_equal 0, @tracker.missing_scrape_count("1", "Josh")
+  end
+
+  # A second absence after a return is a new event, not a continuation.
+  def test_item_going_missing_again_is_reported_again
+    scrape([checkout(item_id: "1")], [])
+    scrape([], [])
+    scrape([checkout(item_id: "1")], [])
+    scrape([], [])
+
+    assert_equal 2, transitions.count { |t| t["transition_type"] == "disappeared" }
+  end
+
+  def test_missing_items_reports_title_and_count
+    scrape([checkout(item_id: "1", title: "Dune")], [])
+    2.times { scrape([], []) }
+
+    missing = @tracker.missing_items("Josh")
+    assert_equal 1, missing.length
+    assert_equal "Dune", missing.first[:title]
+    assert_equal 2, missing.first[:missing_scrapes]
   end
 
   def test_get_unexpected_transitions_returns_only_unexpected

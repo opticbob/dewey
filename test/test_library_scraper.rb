@@ -240,6 +240,50 @@ class TestLibraryScraper < Minitest::Test
     end
   end
 
+  # --- retaining missing items --------------------------------------------
+
+  # An item absent from one scrape is usually still there: BiblioCommons
+  # sometimes serves a short list. Keep it on the page, flagged, until enough
+  # scrapes have missed it.
+  def test_missing_item_is_retained_and_flagged
+    tracker = @scraper.instance_variable_get(:@item_tracker)
+    previous = [checkout(item_id: "1", title: "Dune")]
+
+    tracker.detect_transitions(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
+    tracker.record_snapshot(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
+    tracker.detect_transitions([], [], "Josh", "2026-08-13T02:00:00+00:00")
+    tracker.record_snapshot([], [], "Josh", "2026-08-13T02:00:00+00:00")
+
+    kept = @scraper.send(:retained_missing, previous, [], "Josh")
+
+    assert_equal 1, kept.length
+    assert_equal "Dune", kept.first["title"]
+    assert_equal 1, kept.first["missing_scrapes"]
+  end
+
+  def test_missing_item_is_dropped_after_the_threshold
+    tracker = @scraper.instance_variable_get(:@item_tracker)
+    previous = [checkout(item_id: "1")]
+
+    tracker.detect_transitions(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
+    tracker.record_snapshot(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
+    (2..4).each do |h|
+      at = format("2026-08-13T%02d:00:00+00:00", h)
+      tracker.detect_transitions([], [], "Josh", at)
+      tracker.record_snapshot([], [], "Josh", at)
+    end
+
+    # Three scrapes have now missed it, which is the default threshold.
+    assert_equal 3, tracker.missing_scrape_count("1", "Josh")
+    assert_empty @scraper.send(:retained_missing, previous, [], "Josh")
+  end
+
+  def test_items_present_in_the_scrape_are_not_retained
+    previous = [checkout(item_id: "1")]
+
+    assert_empty @scraper.send(:retained_missing, previous, previous, "Josh")
+  end
+
   # --- has_next_page? -----------------------------------------------------
 
   def test_has_next_page_true_when_next_button_present

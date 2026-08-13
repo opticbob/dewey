@@ -17,12 +17,19 @@
         </thead>
         <tbody>
             <% checkouts.each do |item| %>
-                <tr>
+                <tr class="<%= item['missing_scrapes'] ? 'item-missing' : '' %>">
                     <td class="thumbnail-cell">
                         <img src="<%= item['thumbnail_url'] || '/placeholder.jpg' %>" alt="<%= item['title'] %>" class="table-thumbnail" loading="lazy">
                     </td>
                     <td class="title-cell">
-                        <div class="title-main"><%= item['title'] %></div>
+                        <div class="title-main">
+                            <%= item['title'] %>
+                            <% if item['missing_scrapes'] %>
+                                <span class="missing-badge" title="Not seen in the last <%= item['missing_scrapes'] %> scrape<%= item['missing_scrapes'] == 1 ? '' : 's' %>">
+                                    ⚠️ not seen in last <%= item['missing_scrapes'] %> scrape<%= item['missing_scrapes'] == 1 ? '' : 's' %>
+                                </span>
+                            <% end %>
+                        </div>
                         <% if item['subtitle'] && !item['subtitle'].empty? %>
                             <div class="title-subtitle"><%= item['subtitle'] %></div>
                         <% end %>

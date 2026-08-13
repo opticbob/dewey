@@ -497,6 +497,31 @@
             font-weight: 500;
         }
 
+        /* An item the latest scrape did not return. Kept on the page because
+           BiblioCommons intermittently serves an incomplete list, but marked
+           so it is not mistaken for confirmed data. */
+        .items-table tbody tr.item-missing {
+            background: #fffaf3;
+        }
+
+        .items-table tbody tr.item-missing .title-main,
+        .items-table tbody tr.item-missing .title-author {
+            opacity: 0.65;
+        }
+
+        .missing-badge {
+            display: inline-block;
+            margin-left: 0.4rem;
+            padding: 0.1rem 0.45rem;
+            border-radius: 12px;
+            background: #fff3e0;
+            color: #e65100;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
         .renewable-badge {
             color: #388e3c;
             font-size: 0.75rem;

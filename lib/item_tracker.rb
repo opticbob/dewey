@@ -13,14 +13,15 @@ class ItemTracker
 
   def ensure_database
     FileUtils.mkdir_p(@data_dir)
-    is_new = !File.exist?(@db_path)
 
     @db = SQLite3::Database.new(@db_path)
     @db.results_as_hash = true
 
-    if is_new
-      create_schema
-    end
+    # Always run: every statement is CREATE ... IF NOT EXISTS, so this is
+    # idempotent and also adds tables introduced after a database was created.
+    # Previously it ran only for a brand new file, so an existing deployment
+    # never picked up new tables.
+    create_schema
   end
 
   def create_schema
@@ -61,6 +62,21 @@ class ItemTracker
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- One row per completed scrape, so a scrape is recorded even when the
+      -- patron has no items. item_snapshots alone cannot represent that: an
+      -- empty scrape writes no rows, leaving no evidence it happened, which
+      -- made it impossible to count how many scrapes had missed an item.
+      CREATE TABLE IF NOT EXISTS scrape_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        patron_name TEXT NOT NULL,
+        scraped_at TEXT NOT NULL,
+        item_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(patron_name, scraped_at)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_scrape_runs_patron ON scrape_runs(patron_name, scraped_at);
+
       CREATE INDEX IF NOT EXISTS idx_item_transitions_item_id ON item_transitions(item_id);
       CREATE INDEX IF NOT EXISTS idx_item_transitions_patron ON item_transitions(patron_name);
       CREATE INDEX IF NOT EXISTS idx_item_transitions_type ON item_transitions(transition_type);
@@ -70,6 +86,13 @@ class ItemTracker
 
   # Record a snapshot of current items for a patron
   def record_snapshot(checkouts, holds, patron_name, scraped_at = Time.now.iso8601)
+    mine = checkouts.count { |i| i["patron_name"] == patron_name } +
+      holds.count { |i| i["patron_name"] == patron_name }
+    @db.execute(
+      "INSERT OR IGNORE INTO scrape_runs (patron_name, scraped_at, item_count) VALUES (?, ?, ?)",
+      [patron_name, scraped_at, mine]
+    )
+
     # Convert checkouts to snapshots
     checkouts.each do |item|
       next unless item["patron_name"] == patron_name
@@ -102,7 +125,11 @@ class ItemTracker
   # the previous scrape while the current one is still unwritten.
   def detect_transitions(checkouts, holds, patron_name, scraped_at = Time.now.iso8601)
     previous_snapshots = get_previous_snapshots(patron_name)
-    return if previous_snapshots.empty?
+    # Nothing to compare against on the very first scrape for a patron. An
+    # empty previous scrape is different: it has a scrape_runs row, and items
+    # returning after it must still be detected, so only bail when the patron
+    # has never been scraped at all.
+    return if previous_snapshots.empty? && !scraped_before?(patron_name)
 
     current_items = build_current_items_map(checkouts, holds, patron_name)
     previous_items = previous_snapshots.group_by { |s| s["item_id"] }
@@ -113,8 +140,11 @@ class ItemTracker
       current = current_items[item_id]
 
       if current.nil?
-        # Item disappeared - determine if expected
-        record_disappearance(previous, scraped_at)
+        # Only the first scrape that misses an item records a disappearance.
+        # Comparing against the previous snapshot alone reported the same item
+        # again on every subsequent scrape, so one item missing for a day
+        # produced two dozen identical rows.
+        record_disappearance(previous, scraped_at) unless already_missing?(item_id, patron_name)
       elsif previous["state"] != current[:state]
         # Item changed state
         record_state_change(previous, current, scraped_at)
@@ -123,9 +153,87 @@ class ItemTracker
 
     # Find items that appeared (new checkouts/holds)
     current_items.each do |item_id, current|
-      unless previous_items.key?(item_id)
+      next if previous_items.key?(item_id)
+
+      # An item that returns after being missed is a reappearance, not a new
+      # item. Previously neither branch caught it: it is absent from the
+      # previous snapshot, so the disappearance loop never sees it, and it was
+      # recorded as "appeared" with no indication it had been here before.
+      if already_missing?(item_id, patron_name)
+        record_reappearance(current, scraped_at)
+      else
         record_appearance(current, scraped_at)
       end
+    end
+  end
+
+  # Whether this patron has been scraped before, including scrapes that found
+  # nothing. Distinguishes "first ever scrape" from "previous scrape was empty".
+  def scraped_before?(patron_name)
+    @db.get_first_value("SELECT 1 FROM scrape_runs WHERE patron_name = ? LIMIT 1", [patron_name]) ||
+      @db.get_first_value("SELECT 1 FROM item_snapshots WHERE patron_name = ? LIMIT 1", [patron_name])
+  end
+
+  # True when the most recent disappearance for this item has not been
+  # followed by it coming back. Used to suppress duplicate reports.
+  def already_missing?(item_id, patron_name)
+    last = @db.execute(
+      "SELECT transition_type FROM item_transitions " \
+      "WHERE item_id = ? AND patron_name = ? " \
+      "AND transition_type IN ('disappeared', 'appeared', 'reappeared') " \
+      "ORDER BY transitioned_at DESC, id DESC LIMIT 1",
+      [item_id, patron_name]
+    ).first
+
+    last && last["transition_type"] == "disappeared"
+  end
+
+  # How many consecutive scrapes an item has been missing for, counting from
+  # the scrape that first missed it. 0 means it is present.
+  def missing_scrape_count(item_id, patron_name)
+    gone_at = @db.get_first_value(
+      "SELECT transitioned_at FROM item_transitions " \
+      "WHERE item_id = ? AND patron_name = ? " \
+      "AND transition_type IN ('disappeared', 'appeared', 'reappeared') " \
+      "ORDER BY transitioned_at DESC, id DESC LIMIT 1",
+      [item_id, patron_name]
+    )
+    return 0 unless gone_at
+
+    still_gone = @db.get_first_value(
+      "SELECT transition_type FROM item_transitions " \
+      "WHERE item_id = ? AND patron_name = ? AND transitioned_at = ? " \
+      "ORDER BY id DESC LIMIT 1",
+      [item_id, patron_name, gone_at]
+    )
+    return 0 unless still_gone == "disappeared"
+
+    # Counted from scrape_runs rather than item_snapshots: a scrape that finds
+    # nothing writes no snapshot rows, so snapshots cannot tell you it ran.
+    @db.get_first_value(
+      "SELECT COUNT(*) FROM scrape_runs WHERE patron_name = ? AND scraped_at >= ?",
+      [patron_name, gone_at]
+    ).to_i
+  end
+
+  # Items this patron had that the most recent scrapes have not seen, with the
+  # number of consecutive scrapes each has been missing for.
+  def missing_items(patron_name)
+    rows = @db.execute(
+      "SELECT item_id, title, from_state FROM item_transitions " \
+      "WHERE patron_name = ? AND transition_type = 'disappeared' " \
+      "GROUP BY item_id HAVING MAX(transitioned_at) " \
+      "ORDER BY transitioned_at DESC",
+      [patron_name]
+    )
+
+    rows.filter_map do |row|
+      next unless already_missing?(row["item_id"], patron_name)
+      count = missing_scrape_count(row["item_id"], patron_name)
+      next if count.zero?
+
+      {item_id: row["item_id"], title: row["title"],
+       from_state: row["from_state"], missing_scrapes: count}
     end
   end
 
@@ -202,21 +310,33 @@ class ItemTracker
   end
 
   def get_previous_snapshots(patron_name)
-    # The latest snapshot in the table *is* the previous scrape: callers run
+    # The latest run in the table *is* the previous scrape: callers run
     # detect_transitions before record_snapshot, so the current scrape has not
     # been written yet. Skipping a row here compared against a scrape two runs
     # old, which reported items as disappeared while they were still present in
     # the snapshot recorded moments later.
-    previous_scrape = @db.execute(
-      "SELECT DISTINCT scraped_at FROM item_snapshots WHERE patron_name = ? ORDER BY scraped_at DESC LIMIT 1",
+    #
+    # Taken from scrape_runs rather than item_snapshots: a scrape that finds
+    # nothing writes no snapshot rows, so using snapshots silently compared
+    # against the last scrape that happened to find something. An item missing
+    # for several scrapes then looked present the whole time, and its return
+    # was never recorded.
+    previous_scrape = @db.get_first_value(
+      "SELECT scraped_at FROM scrape_runs WHERE patron_name = ? ORDER BY scraped_at DESC, id DESC LIMIT 1",
       [patron_name]
-    ).first
+    )
+
+    # Fall back to snapshots for databases written before scrape_runs existed.
+    previous_scrape ||= @db.get_first_value(
+      "SELECT scraped_at FROM item_snapshots WHERE patron_name = ? ORDER BY scraped_at DESC LIMIT 1",
+      [patron_name]
+    )
 
     return [] unless previous_scrape
 
     @db.execute(
       "SELECT * FROM item_snapshots WHERE patron_name = ? AND scraped_at = ?",
-      [patron_name, previous_scrape["scraped_at"]]
+      [patron_name, previous_scrape]
     )
   end
 
@@ -268,6 +388,15 @@ class ItemTracker
     @db.execute(
       "INSERT INTO item_transitions (item_id, patron_name, title, from_state, to_state, transition_type, is_expected, notes, transitioned_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [previous["item_id"], previous["patron_name"], previous["title"], previous["state"], current[:state], "state_change", is_expected ? 1 : 0, notes, scraped_at]
+    )
+  end
+
+  # An item that was reported missing and has come back. Recorded separately
+  # from a first appearance so the disappearance can be seen to have resolved.
+  def record_reappearance(current, scraped_at)
+    @db.execute(
+      "INSERT INTO item_transitions (item_id, patron_name, title, from_state, to_state, transition_type, is_expected, notes, transitioned_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [current[:item_id], current[:patron_name], current[:title], nil, current[:state], "reappeared", 1, "Item returned after being missing", scraped_at]
     )
   end
 

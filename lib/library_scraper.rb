@@ -17,6 +17,15 @@ class LibraryScraper
     Float(ENV.fetch("PAGE_SETTLE_SECONDS", "2"))
   end
 
+  # How many consecutive scrapes may miss an item before it is dropped from
+  # the interface. BiblioCommons sometimes serves a short list that its own
+  # page totals agree with, so a single absence is not evidence an item is
+  # gone; it is usually back on the next scrape. Until this many scrapes have
+  # missed it, the item stays on the page flagged as missing.
+  def self.missing_scrapes_before_removal
+    Integer(ENV.fetch("MISSING_SCRAPES_BEFORE_REMOVAL", "3"))
+  end
+
   # Bibliocommons CSS selectors for Lawrence Public Library
   SIGN_IN_BUTTON_SELECTOR = 'a[href="/user/login"]'
   USERNAME_SELECTOR = 'input[name="name"]'
@@ -137,6 +146,9 @@ class LibraryScraper
         all_checkouts = @data_store.get_checkouts
         all_holds = @data_store.get_holds
 
+        previous_checkouts = all_checkouts.select { |item| item["patron_name"] == patron[:name] }
+        previous_holds = all_holds.select { |item| item["patron_name"] == patron[:name] }
+
         # Remove old data for this patron and add new data
         all_checkouts.reject! { |item| item["patron_name"] == patron[:name] }
         all_holds.reject! { |item| item["patron_name"] == patron[:name] }
@@ -150,6 +162,13 @@ class LibraryScraper
         scraped_at = Time.now.iso8601
         @item_tracker.detect_transitions(checkouts, holds, patron[:name], scraped_at)
         @item_tracker.record_snapshot(checkouts, holds, patron[:name], scraped_at)
+
+        # BiblioCommons intermittently serves an incomplete list, so an item
+        # absent from one scrape has usually not actually gone anywhere. Keep
+        # recently-missing items on the page, flagged, and only drop them once
+        # they have been absent for MISSING_SCRAPES_BEFORE_REMOVAL scrapes.
+        all_checkouts.concat(retained_missing(previous_checkouts, checkouts, patron[:name]))
+        all_holds.concat(retained_missing(previous_holds, holds, patron[:name]))
 
         unexpected_count = @item_tracker.get_unexpected_transitions(1).count { |t| t["patron_name"] == patron[:name] }
 
@@ -634,6 +653,24 @@ class LibraryScraper
     @logger.info "=" * 80
 
     all_holds
+  end
+
+  # Items the patron had that this scrape did not return, still within the
+  # tolerance window. Each is tagged with how many scrapes have missed it so
+  # the interface can mark it; once the count reaches the threshold the item
+  # is left out and disappears from the page.
+  def retained_missing(previous_items, current_items, patron_name)
+    current_ids = current_items.map { |item| item["item_id"] }.to_set
+
+    previous_items.reject { |item| current_ids.include?(item["item_id"]) }
+      .filter_map do |item|
+        missed = @item_tracker.missing_scrape_count(item["item_id"], patron_name)
+        next if missed.zero? || missed >= self.class.missing_scrapes_before_removal
+
+        plural = (missed == 1) ? "scrape" : "scrapes"
+        @logger.info "  Keeping missing item (#{missed} #{plural}): #{item["title"]}"
+        item.merge("missing_scrapes" => missed)
+      end
   end
 
   def generate_item_id(title, author, patron_name)
