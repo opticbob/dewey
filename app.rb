@@ -135,7 +135,9 @@ class DeweyApp < Sinatra::Base
     patron_name = params[:name]
     @data = @data_store.get_patron_data(patron_name)
     @patron_name = patron_name
-    @scrape_failures = @data_store.get_recent_scrape_failures
+    # Only this patron's failures: another patron's login trouble says nothing
+    # about whether this page's data is current.
+    @scrape_failures = @data_store.get_recent_scrape_failures(patron_name)
     erb :patron
   end
 

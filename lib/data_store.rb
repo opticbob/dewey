@@ -180,7 +180,10 @@ class DataStore
     last_successful_scrape&.dig("timestamp")
   end
 
-  def get_recent_scrape_failures
+  # Failed scrapes from the last 24 hours, most recent first. Pass a patron
+  # name to get only that patron's failures, which is what their own page
+  # shows -- another patron's login trouble is not relevant there.
+  def get_recent_scrape_failures(patron_name = nil)
     log_data = read_json_file("scrape_log.json")
     return [] unless log_data && log_data["scrapes"]
 
@@ -188,7 +191,8 @@ class DataStore
     cutoff_time = Time.now - (24 * 60 * 60)
 
     log_data["scrapes"]
-      .select { |scrape| !scrape["success"] }
+      .reject { |scrape| scrape["success"] }
+      .select { |scrape| patron_name.nil? || scrape["patron_name"] == patron_name }
       .select do |scrape|
         Time.parse(scrape["timestamp"]) > cutoff_time
     rescue

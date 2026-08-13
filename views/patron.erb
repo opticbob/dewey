@@ -17,53 +17,10 @@
     </div>
 </div>
 
-<% if @scrape_failures && !@scrape_failures.empty? %>
-    <div class="alert-banner">
-        <div class="alert-banner-title">
-            ⚠️ Scraping Issues Detected
-        </div>
-        <div class="alert-banner-content">
-            <%= @scrape_failures.length %> scrape <%= @scrape_failures.length == 1 ? 'failure' : 'failures' %> in the last 24 hours. Library data may be outdated.
-            <% @scrape_failures.take(3).each do |failure| %>
-                <div class="alert-banner-error">
-                    <strong><%= failure['patron_name'] %></strong>: <%= failure['error_message'] %>
-                    <div class="alert-banner-time"><%= relative_time(failure['timestamp']) %></div>
-                </div>
-            <% end %>
-            <% if @scrape_failures.length > 3 %>
-                <div style="margin-top: 0.5rem; color: #999; font-size: 0.85rem;">
-                    ... and <%= @scrape_failures.length - 3 %> more failures
-                </div>
-            <% end %>
-        </div>
-    </div>
-<% end %>
+<%= erb :_scrape_failures, locals: { failures: @scrape_failures } %>
 
 <% if @data && @data[:stats] %>
-    <div class="stats-grid">
-        <div class="stat-card">
-            <span class="stat-number"><%= @data[:stats][:total_checkouts] %></span>
-            <span class="stat-label">Checkouts</span>
-            <span class="stat-breakdown"><%= @data[:stats][:physical_checkouts] %> physical, <%= @data[:stats][:digital_checkouts] %> digital</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-number"><%= @data[:stats][:total_holds] %></span>
-            <span class="stat-label">Holds</span>
-            <span class="stat-breakdown"><%= @data[:stats][:physical_holds] %> physical, <%= @data[:stats][:digital_holds] %> digital</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-number" style="color: <%= @data[:stats][:items_overdue] > 0 ? '#d32f2f' : '#388e3c' %>">
-                <%= @data[:stats][:items_overdue] %>
-            </span>
-            <span class="stat-label">Overdue</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-number" style="color: <%= @data[:stats][:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
-                <%= @data[:stats][:items_due_soon] %>
-            </span>
-            <span class="stat-label">Due Within <%= @data[:stats][:due_soon_days] %> Days</span>
-        </div>
-    </div>
+    <%= erb :_stats_grid, locals: { stats: @data[:stats], show_patrons: false } %>
 <% end %>
 
 <% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>

@@ -1,0 +1,43 @@
+<%#
+  Stat cards, shared by the dashboard and the patron pages so the two cannot
+  drift apart. Every card links to the table it summarises; `show_patrons`
+  adds the family-member count, which only makes sense on the dashboard.
+%>
+<div class="stats-grid">
+    <a href="#checkouts" class="stat-card-link">
+        <div class="stat-card">
+            <span class="stat-number"><%= stats[:total_checkouts] %></span>
+            <span class="stat-label">Checkouts</span>
+            <span class="stat-breakdown"><%= stats[:physical_checkouts] %> physical, <%= stats[:digital_checkouts] %> digital</span>
+        </div>
+    </a>
+    <a href="#holds" class="stat-card-link">
+        <div class="stat-card">
+            <span class="stat-number"><%= stats[:total_holds] %></span>
+            <span class="stat-label">Holds</span>
+            <span class="stat-breakdown"><%= stats[:physical_holds] %> physical, <%= stats[:digital_holds] %> digital</span>
+        </div>
+    </a>
+    <a href="#checkouts" class="stat-card-link">
+        <div class="stat-card">
+            <span class="stat-number" style="color: <%= stats[:items_overdue] > 0 ? '#d32f2f' : '#388e3c' %>">
+                <%= stats[:items_overdue] %>
+            </span>
+            <span class="stat-label">Overdue</span>
+        </div>
+    </a>
+    <a href="#checkouts" class="stat-card-link">
+        <div class="stat-card">
+            <span class="stat-number" style="color: <%= stats[:items_due_soon] > 0 ? '#f57c00' : '#388e3c' %>">
+                <%= stats[:items_due_soon] %>
+            </span>
+            <span class="stat-label">Due in <%= stats[:due_soon_days] %> Days</span>
+        </div>
+    </a>
+    <% if show_patrons %>
+        <div class="stat-card stat-card--static">
+            <span class="stat-number"><%= stats[:patrons]&.length || 0 %></span>
+            <span class="stat-label">Family Members</span>
+        </div>
+    <% end %>
+</div>

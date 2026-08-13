@@ -201,6 +201,32 @@ class TestDataStore < Minitest::Test
     assert_equal "login failed", failures.first["error_message"]
   end
 
+  # A patron's own page shows only their failures: another patron's login
+  # trouble says nothing about whether this page's data is current.
+  def test_scrape_failures_can_be_filtered_by_patron
+    @store.log_scrape_attempt("Josh", false, {}, "josh broke")
+    @store.log_scrape_attempt("Jett", false, {}, "jett broke")
+    @store.log_scrape_attempt("Josh", false, {}, "josh broke again")
+
+    assert_equal 3, @store.get_recent_scrape_failures.length
+    assert_equal ["josh broke again", "josh broke"],
+      @store.get_recent_scrape_failures("Josh").map { |f| f["error_message"] }
+    assert_equal ["jett broke"],
+      @store.get_recent_scrape_failures("Jett").map { |f| f["error_message"] }
+  end
+
+  def test_scrape_failures_for_a_patron_with_none_is_empty
+    @store.log_scrape_attempt("Josh", false, {}, "josh broke")
+
+    assert_empty @store.get_recent_scrape_failures("Autumn")
+  end
+
+  def test_successful_scrapes_are_never_reported_as_failures
+    @store.log_scrape_attempt("Josh", true, {checkouts: 5})
+
+    assert_empty @store.get_recent_scrape_failures("Josh")
+  end
+
   def test_get_last_scrape_time_reflects_latest_successful_scrape
     assert_nil @store.get_last_scrape_time
 

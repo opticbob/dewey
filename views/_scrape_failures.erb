@@ -1,0 +1,25 @@
+<%#
+  Collapsed summary of recent scrape failures, shared by the dashboard and the
+  patron pages. Uses <details> so it expands without any JavaScript.
+
+  Collapsed by default: the failures are usually transient and the banner was
+  pushing the actual library data off the first screen on a phone.
+%>
+<% if failures && !failures.empty? %>
+    <details class="alert-banner">
+        <summary class="alert-banner-summary">
+            <span class="alert-banner-title">
+                ⚠️ <%= failures.length %> scraping <%= (failures.length == 1) ? "issue" : "issues" %> in the last 24 hours
+            </span>
+            <span class="alert-banner-hint">Library data may be outdated</span>
+        </summary>
+        <div class="alert-banner-content">
+            <% failures.each do |failure| %>
+                <div class="alert-banner-error">
+                    <strong><%= failure["patron_name"] %></strong>: <%= failure["error_message"] %>
+                    <div class="alert-banner-time"><%= relative_time(failure["timestamp"]) %></div>
+                </div>
+            <% end %>
+        </div>
+    </details>
+<% end %>

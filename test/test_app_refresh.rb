@@ -60,6 +60,78 @@ class TestAppRefresh < Minitest::Test
     refute JSON.parse(last_response.body)["scrape_running"]
   end
 
+  # --- rendered pages -----------------------------------------------------
+
+  def test_stat_cards_link_to_their_tables_on_both_pages
+    seed_items
+
+    ["/", "/patron/Josh"].each do |path|
+      get path
+
+      assert_equal 200, last_response.status, "#{path} should render"
+      assert_includes last_response.body, 'href="#checkouts"',
+        "#{path} stat cards should link to the checkouts table"
+      assert_includes last_response.body, 'href="#holds"',
+        "#{path} stat cards should link to the holds table"
+    end
+  end
+
+  # A patron's page shows only their own failures.
+  def test_patron_page_shows_only_that_patrons_failures
+    store = DeweyApp.shared_data_store
+    store.log_scrape_attempt("Josh", false, {}, "josh-specific-error")
+    store.log_scrape_attempt("Jett", false, {}, "jett-specific-error")
+
+    get "/patron/Josh"
+    assert_includes last_response.body, "josh-specific-error"
+    refute_includes last_response.body, "jett-specific-error"
+
+    get "/patron/Jett"
+    assert_includes last_response.body, "jett-specific-error"
+    refute_includes last_response.body, "josh-specific-error"
+  end
+
+  def test_dashboard_shows_every_patrons_failures
+    store = DeweyApp.shared_data_store
+    store.log_scrape_attempt("Josh", false, {}, "josh-specific-error")
+    store.log_scrape_attempt("Jett", false, {}, "jett-specific-error")
+
+    get "/"
+
+    assert_includes last_response.body, "josh-specific-error"
+    assert_includes last_response.body, "jett-specific-error"
+  end
+
+  # The failure list is collapsed behind a <details> so it does not push the
+  # library data off the first screen.
+  def test_scrape_failures_are_collapsed_by_default
+    DeweyApp.shared_data_store.log_scrape_attempt("Josh", false, {}, "boom")
+
+    get "/"
+
+    assert_includes last_response.body, "<details class=\"alert-banner\">"
+    refute_includes last_response.body, "<details class=\"alert-banner\" open"
+  end
+
+  def test_no_failure_banner_when_there_are_no_failures
+    get "/"
+
+    # The class name also appears in the stylesheet, so assert on the element.
+    refute_includes last_response.body, "<details class=\"alert-banner\""
+  end
+
+  def seed_items
+    store = DeweyApp.shared_data_store
+    store.save_checkouts([{
+      "item_id" => "1", "patron_name" => "Josh", "title" => "Moby-Dick",
+      "due_date" => (Date.today + 7).to_s, "type" => "Book"
+    }])
+    store.save_holds([{
+      "item_id" => "h1", "patron_name" => "Josh", "title" => "Emma",
+      "status" => "ready"
+    }])
+  end
+
   def test_refresh_starts_a_scrape_when_idle
     post "/refresh", {}, {"HTTP_ACCEPT" => "application/json"}
 

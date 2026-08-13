@@ -106,6 +106,16 @@
             box-shadow: 0 6px 12px rgba(0,0,0,0.15);
         }
 
+        /* Cards that are not links should not look interactive. */
+        .stat-card--static {
+            cursor: default;
+        }
+
+        .stat-card--static:hover {
+            transform: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
         .stat-number {
             font-size: 2.5rem;
             font-weight: bold;
@@ -301,20 +311,53 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        /* The banner is a <details>; the summary is the collapsed state. */
+        .alert-banner-summary {
+            cursor: pointer;
+            list-style: none;
+            /* Not flex: the triangle is an inline marker on the title so it
+               stays on the same line as the text and the hint can wrap
+               underneath on a narrow screen. */
+            display: block;
+        }
+
+        .alert-banner-summary::-webkit-details-marker {
+            display: none;
+        }
+
+        /* Disclosure triangle, rotated when open. */
+        .alert-banner-title::before {
+            content: "▸";
+            color: #d32f2f;
+            display: inline-block;
+            width: 1em;
+            transition: transform 0.15s;
+        }
+
+        .alert-banner[open] .alert-banner-title::before {
+            transform: rotate(90deg);
+        }
+
+
         .alert-banner-title {
             color: #d32f2f;
             font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .alert-banner-hint {
+            display: block;
+            margin-top: 0.15rem;
+            margin-left: 1em;
+            color: #999;
+            font-size: 0.8rem;
         }
 
         .alert-banner-content {
             color: #666;
             font-size: 0.9rem;
             line-height: 1.5;
+            margin-top: 0.75rem;
         }
 
         .alert-banner-error {
@@ -484,8 +527,37 @@
                 justify-content: center;
             }
 
+            /* Two stat cards per row rather than one full-width card each,
+               so the numbers do not push the tables off the first screen.
+               The cards shrink to suit: smaller numbers, tighter padding,
+               and the physical/digital breakdown is dropped. */
             .stats-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 0.75rem;
+            }
+
+            .stat-card {
+                padding: 0.85rem 0.5rem;
+            }
+
+            .stat-number {
+                font-size: 1.75rem;
+            }
+
+            .stat-label {
+                font-size: 0.7rem;
+                letter-spacing: 0.5px;
+                display: block;
+                line-height: 1.25;
+            }
+
+            .stat-breakdown {
+                display: none;
+            }
+
+            /* An odd card out spans the full width instead of leaving a gap. */
+            .stats-grid > :last-child:nth-child(odd) {
+                grid-column: 1 / -1;
             }
 
             .items-grid {
