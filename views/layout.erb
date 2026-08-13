@@ -551,8 +551,13 @@
                 line-height: 1.25;
             }
 
+            /* Kept on mobile, just smaller. "12 physical, 3 digital" wraps to
+               two lines in a half-width card, which is fine -- the cards in a
+               row stretch to match the tallest. */
             .stat-breakdown {
-                display: none;
+                font-size: 0.65rem;
+                margin-top: 0.15rem;
+                line-height: 1.3;
             }
 
             /* An odd card out spans the full width instead of leaving a gap. */
