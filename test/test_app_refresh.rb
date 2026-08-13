@@ -113,6 +113,18 @@ class TestAppRefresh < Minitest::Test
     refute_includes last_response.body, "<details class=\"alert-banner\" open"
   end
 
+  # The control is a real anchor to #top, so it still works if the script
+  # does not run; the JS only handles showing and hiding it.
+  def test_back_to_top_link_is_present_with_an_anchor_target
+    ["/", "/patron/Josh"].each do |path|
+      get path
+
+      assert_includes last_response.body, 'id="backToTop"', "#{path} should have the control"
+      assert_includes last_response.body, 'href="#top"', "#{path} should link to the top anchor"
+      assert_includes last_response.body, 'id="top"', "#{path} needs the anchor target"
+    end
+  end
+
   def test_no_failure_banner_when_there_are_no_failures
     get "/"
 

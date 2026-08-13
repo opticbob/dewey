@@ -738,6 +738,54 @@
             }
         }
 
+        /* Back to top. Hidden until the reader scrolls; the script toggles
+           .is-visible. Uses visibility as well as opacity so it cannot be
+           tapped while invisible. */
+        .back-to-top {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            font-size: 1.3rem;
+            line-height: 44px;
+            text-align: center;
+            text-decoration: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(8px);
+            transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+            z-index: 100;
+        }
+
+        .back-to-top.is-visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background: #5a6fd8;
+        }
+
+        /* Without JavaScript the toggle never runs, so show it always rather
+           than leaving a control that can never appear. */
+        .no-js .back-to-top {
+            opacity: 1;
+            visibility: visible;
+            transform: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .back-to-top {
+                transition: none;
+            }
+        }
+
         footer {
             background: #333;
             color: white;
@@ -747,7 +795,8 @@
         }
     </style>
 </head>
-<body>
+<body class="no-js">
+    <span id="top"></span>
     <header>
         <div class="container">
             <div class="header-content">
@@ -778,5 +827,53 @@
             <p>&copy; 2024 Dewey Library Tracker - Keep track of your family's reading journey</p>
         </div>
     </footer>
+
+    <%#
+      Back to top. An anchor rather than a button so it still works without
+      JavaScript; the script only handles showing and hiding it. The lists run
+      to dozens of items, which is a long way back to the stat cards on a phone.
+    %>
+    <a href="#top" class="back-to-top" id="backToTop" aria-label="Back to top">↑</a>
+
+    <script>
+        (function () {
+            // JavaScript is running, so the scroll-triggered toggle can take
+            // over from the always-visible no-JS fallback.
+            document.body.classList.remove('no-js');
+
+            var btn = document.getElementById('backToTop');
+            if (!btn) return;
+
+            // Show once the reader is a screenful down, so it does not sit
+            // over the content on a page that barely scrolls.
+            var threshold = 300;
+            var visible = false;
+
+            function update() {
+                var show = window.scrollY > threshold;
+                if (show === visible) return;
+                visible = show;
+                btn.classList.toggle('is-visible', show);
+            }
+
+            // rAF-throttled: scroll fires far more often than paint.
+            var ticking = false;
+            window.addEventListener('scroll', function () {
+                if (ticking) return;
+                ticking = true;
+                window.requestAnimationFrame(function () {
+                    update();
+                    ticking = false;
+                });
+            }, {passive: true});
+
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            });
+
+            update();
+        })();
+    </script>
 </body>
 </html>
