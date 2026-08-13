@@ -247,6 +247,14 @@ class DataStore
     end
   end
 
+  # A hold waiting to be picked up. Note "not ready" also contains "ready", so
+  # this matches the whole status rather than a substring. Shared by the hold
+  # sorting and the stats, so the "Ready" card and the table cannot disagree.
+  def hold_ready?(item)
+    status = item["status"]&.downcase&.strip || ""
+    status == "ready" || status == "available"
+  end
+
   def sort_holds(holds)
     # Separate holds into three categories
     ready_holds = []
@@ -255,8 +263,7 @@ class DataStore
 
     holds.each do |item|
       status = item["status"]&.downcase&.strip || ""
-      # Check if item is ready (status is "ready" or "available", but NOT "not ready")
-      if status == "ready" || status == "available"
+      if hold_ready?(item)
         ready_holds << item
       elsif status == "paused"
         paused_holds << item
@@ -377,6 +384,7 @@ class DataStore
       total_holds: holds.length,
       physical_holds: physical_holds,
       digital_holds: digital_holds,
+      holds_ready: holds.count { |item| hold_ready?(item) },
       items_overdue: items_overdue,
       items_due_soon: items_due_soon,
       due_soon_days: due_soon_days,

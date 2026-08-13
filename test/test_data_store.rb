@@ -127,6 +127,40 @@ class TestDataStore < Minitest::Test
     assert_equal 1, stats[:physical_checkouts]
   end
 
+  def test_stats_count_holds_ready_for_pickup
+    @store.save_holds([
+      hold(item_id: "r1", status: "ready"),
+      hold(item_id: "r2", status: "available"),
+      hold(item_id: "w1", status: "not ready"),
+      hold(item_id: "p1", status: "paused")
+    ])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 2, stats[:holds_ready]
+    assert_equal 4, stats[:total_holds]
+  end
+
+  # "not ready" contains "ready"; a substring match would count it.
+  def test_not_ready_holds_are_not_counted_as_ready
+    @store.save_holds([hold(item_id: "w1", status: "not ready")])
+
+    assert_equal 0, @store.get_all_data[:stats][:holds_ready]
+  end
+
+  # The count and the table's ready section come from the same predicate, so
+  # they must agree.
+  def test_holds_ready_count_matches_the_sorted_ready_section
+    @store.save_holds([
+      hold(item_id: "w1", status: "not ready", queue_position: 1),
+      hold(item_id: "r1", status: "ready"),
+      hold(item_id: "r2", status: "available")
+    ])
+
+    data = @store.get_all_data
+    ready_in_table = data[:holds].take(data[:stats][:holds_ready]).map { |h| h["item_id"] }
+    assert_equal %w[r1 r2], ready_in_table.sort
+  end
+
   def test_stats_count_overdue_items
     @store.save_checkouts([
       checkout(item_id: "overdue", due_date: (Date.today - 2).to_s),
