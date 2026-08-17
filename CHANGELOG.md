@@ -9,6 +9,12 @@ says what changed from a user's point of view, not which files moved.
 
 ## 2026-08-17
 
+### Added
+
+- **A favicon**, so Dewey is recognisable among pinned tabs instead of showing
+  the browser's blank page icon. It is the same 📚 the dashboard already uses
+  when a patron has nothing out.
+
 ### Fixed
 
 - **Fewer scrapes lost to slow library pages.** A patron's scrape was thrown
