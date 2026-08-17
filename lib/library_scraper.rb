@@ -49,6 +49,7 @@ class LibraryScraper
   THUMBNAIL_SELECTOR = ".jacket-cover-container img"
   RENEWABLE_SELECTOR = ".cp-batch-renew-checkbox"
   RENEW_COUNT_SELECTOR = ".cp-renew-count"
+  HELD_COPIES_SELECTOR = ".cp-held-copies-count"
   STATUS_SELECTOR = ".status-name"
 
   HOLDS_PAGE_PATH = "/v2/holds"
@@ -380,8 +381,14 @@ class LibraryScraper
 
           # How many times this item has auto-renewed. BiblioCommons omits the
           # element entirely until an item has renewed at least once.
-          renewal_count = parse_renewal_count(
+          renewal_count = parse_leading_count(
             extract_text_with_fallback(item, [RENEW_COUNT_SELECTOR])
+          )
+
+          # Other patrons holding this title. An item with anyone waiting will
+          # not auto-renew, so this matters even when renewals remain.
+          people_waiting = parse_leading_count(
+            extract_text_with_fallback(item, [HELD_COPIES_SELECTOR])
           )
 
           # Get thumbnail URL if available
@@ -412,6 +419,7 @@ class LibraryScraper
             "type" => item_type,
             "renewable" => renewable,
             "renewal_count" => renewal_count,
+            "people_waiting" => people_waiting,
             "patron_name" => patron_name,
             "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
             "item_id" => item_id
@@ -934,10 +942,10 @@ class LibraryScraper
     end
   end
 
-  # Renewal count from the "Renewed 2 times" label. BiblioCommons omits the
-  # element until an item has renewed at least once, so a missing label means
-  # zero rather than unknown.
-  def parse_renewal_count(text)
+  # Leading count out of a label like "Renewed 2 times" or "5 people waiting".
+  # BiblioCommons omits these elements entirely rather than showing a zero, so
+  # a missing label means none rather than unknown.
+  def parse_leading_count(text)
     return 0 unless text
 
     match = text[/(\d+)/]

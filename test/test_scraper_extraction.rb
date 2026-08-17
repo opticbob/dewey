@@ -141,7 +141,7 @@ class TestScraperExtraction < Minitest::Test
     with_fixture("checkouts_page.html") do |page|
       counts = checkout_items(page).map do |item|
         @scraper.send(
-          :parse_renewal_count,
+          :parse_leading_count,
           @scraper.send(:extract_text_with_fallback, item, [LibraryScraper::RENEW_COUNT_SELECTOR])
         )
       end
@@ -149,6 +149,23 @@ class TestScraperExtraction < Minitest::Test
       assert_equal 1, counts.count { |c| c > 0 }, "one item in the fixture has renewed"
       assert_includes counts, 1
       assert_equal 3, counts.count(&:zero?), "items with no label count as zero"
+    end
+  end
+
+  # An item with another patron waiting will not auto-renew, so the count is
+  # tracked separately from renewals. The fixture carries the two on different
+  # items, so neither test can pass on the other's markup.
+  def test_extracts_people_waiting
+    with_fixture("checkouts_page.html") do |page|
+      counts = checkout_items(page).map do |item|
+        @scraper.send(
+          :parse_leading_count,
+          @scraper.send(:extract_text_with_fallback, item, [LibraryScraper::HELD_COPIES_SELECTOR])
+        )
+      end
+
+      assert_equal 1, counts.count { |c| c > 0 }, "one item in the fixture has people waiting"
+      assert_includes counts, 2
     end
   end
 

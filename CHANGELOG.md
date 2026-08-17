@@ -15,6 +15,10 @@ says what changed from a user's point of view, not which files moved.
   on their due date until they reach the library's limit, so an item at 4 of 4
   will not renew again; those are highlighted. BiblioCommons omits the label
   until an item has renewed once, which reads as zero.
+- **"N people waiting"** on checked-out items another patron has requested.
+  Such an item will not auto-renew however many renewals it has left, so the
+  count is highlighted alongside the renewals — an item can read 0 of 4 and
+  still be genuinely due.
 
 ## 2026-08-13
 

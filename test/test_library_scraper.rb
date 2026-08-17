@@ -115,22 +115,27 @@ class TestLibraryScraper < Minitest::Test
     assert_equal "Book", normalize_item_type(nil)
   end
 
-  # --- parse_renewal_count ------------------------------------------------
+  # --- parse_leading_count ------------------------------------------------
 
   def test_parses_singular_and_plural_renewal_labels
-    assert_equal 1, @scraper.send(:parse_renewal_count, "Renewed 1 time")
-    assert_equal 2, @scraper.send(:parse_renewal_count, "Renewed 2 times")
-    assert_equal 4, @scraper.send(:parse_renewal_count, "Renewed 4 times")
+    assert_equal 1, @scraper.send(:parse_leading_count, "Renewed 1 time")
+    assert_equal 2, @scraper.send(:parse_leading_count, "Renewed 2 times")
+    assert_equal 4, @scraper.send(:parse_leading_count, "Renewed 4 times")
   end
 
-  # BiblioCommons leaves the element out entirely until an item has renewed
-  # once, so a missing label means zero rather than unknown.
-  def test_missing_renewal_label_counts_as_zero
-    assert_equal 0, @scraper.send(:parse_renewal_count, nil)
+  def test_parses_singular_and_plural_waiting_labels
+    assert_equal 1, @scraper.send(:parse_leading_count, "1 person waiting")
+    assert_equal 5, @scraper.send(:parse_leading_count, "5 people waiting")
   end
 
-  def test_unparseable_renewal_label_counts_as_zero
-    assert_equal 0, @scraper.send(:parse_renewal_count, "Renewed")
+  # BiblioCommons leaves these elements out entirely rather than showing a
+  # zero, so a missing label means none rather than unknown.
+  def test_missing_label_counts_as_zero
+    assert_equal 0, @scraper.send(:parse_leading_count, nil)
+  end
+
+  def test_unparseable_label_counts_as_zero
+    assert_equal 0, @scraper.send(:parse_leading_count, "Renewed")
   end
 
   # --- generate_item_id ---------------------------------------------------

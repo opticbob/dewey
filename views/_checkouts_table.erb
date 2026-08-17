@@ -49,11 +49,19 @@
                     </td>
                     <td class="renewals-cell" data-label="Renewals">
                         <% count = item['renewal_count'].to_i %>
+                        <% waiting = item['people_waiting'].to_i %>
                         <% maxed = count >= LibraryScraper::MAX_RENEWALS %>
-                        <span class="renewals <%= maxed ? 'renewals--maxed' : '' %>"
+                        <% blocked = maxed || waiting > 0 %>
+                        <span class="renewals <%= blocked ? 'renewals--blocked' : '' %>"
                               title="<%= maxed ? 'No renewals left' : "#{LibraryScraper::MAX_RENEWALS - count} renewal#{(LibraryScraper::MAX_RENEWALS - count) == 1 ? '' : 's'} left" %>">
                             <%= count %> of <%= LibraryScraper::MAX_RENEWALS %>
                         </span>
+                        <% if waiting > 0 %>
+                            <div class="waiting-badge"
+                                 title="Another patron has requested this title, so it will not renew">
+                                <%= waiting %> <%= waiting == 1 ? 'person' : 'people' %> waiting
+                            </div>
+                        <% end %>
                     </td>
                     <% if show_patron %>
                         <td class="patron-cell" data-label="Patron">

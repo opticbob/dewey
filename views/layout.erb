@@ -539,9 +539,19 @@
             font-size: 0.9rem;
         }
 
-        .renewals--maxed {
+        /* Highlighted when the item will not auto-renew: either it has used
+           every renewal, or another patron is waiting for it. */
+        .renewals--blocked {
             color: #d32f2f;
             font-weight: 600;
+        }
+
+        .waiting-badge {
+            margin-top: 0.2rem;
+            color: #e65100;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
         .renewable-badge {
