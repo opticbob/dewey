@@ -135,6 +135,23 @@ class TestScraperExtraction < Minitest::Test
     end
   end
 
+  # The saved page has one item that has renewed and three that have not, so
+  # this covers both the label and its absence against real markup.
+  def test_extracts_renewal_counts
+    with_fixture("checkouts_page.html") do |page|
+      counts = checkout_items(page).map do |item|
+        @scraper.send(
+          :parse_renewal_count,
+          @scraper.send(:extract_text_with_fallback, item, [LibraryScraper::RENEW_COUNT_SELECTOR])
+        )
+      end
+
+      assert_equal 1, counts.count { |c| c > 0 }, "one item in the fixture has renewed"
+      assert_includes counts, 1
+      assert_equal 3, counts.count(&:zero?), "items with no label count as zero"
+    end
+  end
+
   def test_finds_hold_items
     with_fixture("holds_page.html") do |page|
       assert_equal 2, page.locator(LibraryScraper::HOLD_ITEM_SELECTOR).all.length

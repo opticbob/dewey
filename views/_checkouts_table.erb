@@ -10,6 +10,7 @@
                 <th>Title / Author</th>
                 <th class="col-type">Type</th>
                 <th class="col-due">Due Date</th>
+                <th class="col-renewals">Renewals</th>
                 <% if show_patron %>
                     <th class="col-patron">Patron</th>
                 <% end %>
@@ -45,6 +46,14 @@
                         <% if item['renewable'] %>
                             <div class="renewable-badge">✓ Renewable</div>
                         <% end %>
+                    </td>
+                    <td class="renewals-cell" data-label="Renewals">
+                        <% count = item['renewal_count'].to_i %>
+                        <% maxed = count >= LibraryScraper::MAX_RENEWALS %>
+                        <span class="renewals <%= maxed ? 'renewals--maxed' : '' %>"
+                              title="<%= maxed ? 'No renewals left' : "#{LibraryScraper::MAX_RENEWALS - count} renewal#{(LibraryScraper::MAX_RENEWALS - count) == 1 ? '' : 's'} left" %>">
+                            <%= count %> of <%= LibraryScraper::MAX_RENEWALS %>
+                        </span>
                     </td>
                     <% if show_patron %>
                         <td class="patron-cell" data-label="Patron">

@@ -17,6 +17,11 @@ class LibraryScraper
     Float(ENV.fetch("PAGE_SETTLE_SECONDS", "2"))
   end
 
+  # Items auto-renew on their due date until they hit the library's limit, so
+  # an item at the maximum will not renew again. Used to flag those in the
+  # interface rather than to cap anything during scraping.
+  MAX_RENEWALS = 4
+
   # How many consecutive scrapes may miss an item before it is dropped from
   # the interface. BiblioCommons sometimes serves a short list that its own
   # page totals agree with, so a single absence is not evidence an item is
@@ -43,6 +48,7 @@ class LibraryScraper
   TYPE_SELECTOR = ".display-info-primary"
   THUMBNAIL_SELECTOR = ".jacket-cover-container img"
   RENEWABLE_SELECTOR = ".cp-batch-renew-checkbox"
+  RENEW_COUNT_SELECTOR = ".cp-renew-count"
   STATUS_SELECTOR = ".status-name"
 
   HOLDS_PAGE_PATH = "/v2/holds"
@@ -372,6 +378,12 @@ class LibraryScraper
             false
           end
 
+          # How many times this item has auto-renewed. BiblioCommons omits the
+          # element entirely until an item has renewed at least once.
+          renewal_count = parse_renewal_count(
+            extract_text_with_fallback(item, [RENEW_COUNT_SELECTOR])
+          )
+
           # Get thumbnail URL if available
           thumbnail_url = begin
             img_locator = item.locator(THUMBNAIL_SELECTOR)
@@ -399,6 +411,7 @@ class LibraryScraper
             "due_date" => parse_due_date(due_date),
             "type" => item_type,
             "renewable" => renewable,
+            "renewal_count" => renewal_count,
             "patron_name" => patron_name,
             "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
             "item_id" => item_id
@@ -919,6 +932,16 @@ class LibraryScraper
       @logger.warn "Could not parse date: #{date_text} (cleaned: #{cleaned_date})"
       cleaned_date # Return original if parsing fails
     end
+  end
+
+  # Renewal count from the "Renewed 2 times" label. BiblioCommons omits the
+  # element until an item has renewed at least once, so a missing label means
+  # zero rather than unknown.
+  def parse_renewal_count(text)
+    return 0 unless text
+
+    match = text[/(\d+)/]
+    match ? match.to_i : 0
   end
 
   def normalize_item_type(raw_type)

@@ -413,6 +413,7 @@
         .col-position { width: 100px; }
         .col-checkout { width: 140px; }
         .col-patron { width: 120px; }
+        .col-renewals { width: 110px; }
 
         .items-table thead {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -528,6 +529,19 @@
             font-weight: 600;
             white-space: nowrap;
             vertical-align: middle;
+        }
+
+        /* Auto-renewals used, out of the library's limit. Highlighted at the
+           limit, where the item will not renew again and is genuinely due. */
+        .renewals {
+            font-variant-numeric: tabular-nums;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .renewals--maxed {
+            color: #d32f2f;
+            font-weight: 600;
         }
 
         .renewable-badge {
@@ -732,7 +746,7 @@
 
             /* Column widths are meaningless once the cells are stacked. */
             .col-thumb, .col-type, .col-due, .col-status,
-            .col-position, .col-checkout, .col-patron {
+            .col-position, .col-checkout, .col-patron, .col-renewals {
                 width: auto;
             }
 

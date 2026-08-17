@@ -7,6 +7,15 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-08-16
+
+### Added
+
+- **Renewal count on checked-out items**, shown as "2 of 4". Items auto-renew
+  on their due date until they reach the library's limit, so an item at 4 of 4
+  will not renew again; those are highlighted. BiblioCommons omits the label
+  until an item has renewed once, which reads as zero.
+
 ## 2026-08-13
 
 ### Fixed

@@ -115,6 +115,24 @@ class TestLibraryScraper < Minitest::Test
     assert_equal "Book", normalize_item_type(nil)
   end
 
+  # --- parse_renewal_count ------------------------------------------------
+
+  def test_parses_singular_and_plural_renewal_labels
+    assert_equal 1, @scraper.send(:parse_renewal_count, "Renewed 1 time")
+    assert_equal 2, @scraper.send(:parse_renewal_count, "Renewed 2 times")
+    assert_equal 4, @scraper.send(:parse_renewal_count, "Renewed 4 times")
+  end
+
+  # BiblioCommons leaves the element out entirely until an item has renewed
+  # once, so a missing label means zero rather than unknown.
+  def test_missing_renewal_label_counts_as_zero
+    assert_equal 0, @scraper.send(:parse_renewal_count, nil)
+  end
+
+  def test_unparseable_renewal_label_counts_as_zero
+    assert_equal 0, @scraper.send(:parse_renewal_count, "Renewed")
+  end
+
   # --- generate_item_id ---------------------------------------------------
 
   def test_item_id_is_stable_for_same_inputs
