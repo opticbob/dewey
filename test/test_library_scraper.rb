@@ -456,7 +456,7 @@ class TestLibraryScraper < Minitest::Test
       FakeLocator.new(count: 1, elements: [FakeItem.new])
     end
 
-    def goto(_url)
+    def goto(_url, **_opts)
       nil
     end
 

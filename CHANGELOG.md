@@ -9,6 +9,16 @@ says what changed from a user's point of view, not which files moved.
 
 ## 2026-08-17
 
+### Fixed
+
+- **Fewer scrapes lost to slow library pages.** A patron's scrape was thrown
+  away whenever BiblioCommons took more than 30 seconds to finish serving a
+  page's images, fonts and third-party scripts, even though the item list
+  itself had rendered almost immediately. Over one recent day this cost five
+  scrapes across all four patrons, mostly on the second page of a long list.
+  Navigations now stop waiting once the page's HTML has been parsed and wait
+  on the item list instead, which is what the scrape actually reads.
+
 ### Changed
 
 - **Scrapes are about 40% faster**, roughly 2 minutes down to 65 seconds for
