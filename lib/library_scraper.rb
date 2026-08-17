@@ -29,6 +29,16 @@ class LibraryScraper
   # is actually wrong.
   CONTAINER_TIMEOUT_MS = 15_000
 
+  # What every navigation waits for. Playwright defaults to "load", which
+  # blocks on images, fonts and third-party scripts, then times out at 30s --
+  # discarding the whole patron scrape even though the item list rendered in
+  # under a second. BiblioCommons stalls on those subresources often enough to
+  # have cost several scrapes a day. Nothing here needs them: each navigation
+  # is followed by a wait on the content itself, bounded by
+  # CONTAINER_TIMEOUT_MS, so stopping at parsed HTML loses no data and drops
+  # the slowest failure mode.
+  NAVIGATION_WAIT_UNTIL = "domcontentloaded"
+
   # Items auto-renew on their due date until they hit the library's limit, so
   # an item at the maximum will not renew again. Used to flag those in the
   # interface rather than to cap anything during scraping.
@@ -239,7 +249,7 @@ class LibraryScraper
     # Navigate directly to the login page instead of clicking through
     login_url = "#{library_url}/user/login"
     @logger.debug "Navigating directly to login page: #{login_url}"
-    page.goto(login_url)
+    page.goto(login_url, waitUntil: NAVIGATION_WAIT_UNTIL)
 
     # No fixed wait here: the username selector loop below already waits for
     # the field to appear, and page.goto has returned by this point.
@@ -339,7 +349,7 @@ class LibraryScraper
     # Navigate to checkouts page
     checkout_url = ENV["LIBRARY_URL"] + CHECKOUTS_PAGE_PATH
     @logger.debug "Navigating to checkouts page: #{checkout_url}"
-    page.goto(checkout_url)
+    page.goto(checkout_url, waitUntil: NAVIGATION_WAIT_UNTIL)
 
     # No fixed wait here: page.goto has already returned, and the loop below
     # waits for the item container on every page including this one.
@@ -482,7 +492,7 @@ class LibraryScraper
         current_page += 1
         next_page_url = "#{checkout_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
-        page.goto(next_page_url)
+        page.goto(next_page_url, waitUntil: NAVIGATION_WAIT_UNTIL)
         sleep(self.class.page_settle_seconds)
       else
         @logger.debug "No more pages found, stopping pagination"
@@ -512,7 +522,7 @@ class LibraryScraper
     # Navigate to holds page
     holds_url = ENV["LIBRARY_URL"] + HOLDS_PAGE_PATH
     @logger.debug "Navigating to holds page: #{holds_url}"
-    page.goto(holds_url)
+    page.goto(holds_url, waitUntil: NAVIGATION_WAIT_UNTIL)
 
     # No fixed wait here; see scrape_checkouts.
 
@@ -679,7 +689,7 @@ class LibraryScraper
         current_page += 1
         next_page_url = "#{holds_url}?page=#{current_page}"
         @logger.debug "Navigating to next page: #{next_page_url}"
-        page.goto(next_page_url)
+        page.goto(next_page_url, waitUntil: NAVIGATION_WAIT_UNTIL)
         sleep(self.class.page_settle_seconds)
       else
         @logger.debug "No more pages found, stopping pagination"
