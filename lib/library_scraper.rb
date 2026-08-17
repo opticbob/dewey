@@ -11,11 +11,23 @@ class LibraryScraper
   # truncated list looks exactly like the missing items having disappeared.
   class IncompleteScrapeError < StandardError; end
 
-  # Pause after loading each page, to stay polite to the library's servers.
-  # Read per call rather than at load time so tests can override it.
+  # Pause between page loads, to stay polite to the library's servers.
+  #
+  # This used to be 2s (3s after a navigation) and was the single largest cost
+  # in a scrape, about 39% of the cycle. page.goto already blocks until the
+  # page has loaded, and measuring against the live site showed the item
+  # container present 0.02-0.04s later with the item count unchanged after a
+  # further 2s -- so the wait was not buying settling time, it was idling.
+  # Navigations now wait on the container instead, and this is only the
+  # courtesy gap between requests.
   def self.page_settle_seconds
-    Float(ENV.fetch("PAGE_SETTLE_SECONDS", "2"))
+    Float(ENV.fetch("PAGE_SETTLE_SECONDS", "0.5"))
   end
+
+  # How long to wait for a list container to appear after a navigation.
+  # Generous: it is a ceiling, not a delay, and only reached when something
+  # is actually wrong.
+  CONTAINER_TIMEOUT_MS = 15_000
 
   # Items auto-renew on their due date until they hit the library's limit, so
   # an item at the maximum will not renew again. Used to flag those in the
@@ -98,12 +110,24 @@ class LibraryScraper
       return
     end
 
-    patrons.each do |patron|
-      @logger.info "Starting scrape for patron: #{patron[:name]}"
-      scrape_patron(patron)
-    rescue => e
-      @logger.error "Failed to scrape patron #{patron[:name]}: #{e.message}"
-      @data_store.log_scrape_attempt(patron[:name], false, {}, e.message)
+    # One driver and browser for the whole run. Each patron previously spawned
+    # its own Playwright driver process and browser, which cost a few seconds
+    # per cycle for no benefit -- the session isolation that matters comes
+    # from a fresh context, which scrape_patron still creates per patron.
+    Playwright.create(playwright_cli_executable_path: "npx playwright") do |playwright|
+      browser = playwright.chromium.launch(headless: @headless)
+
+      begin
+        patrons.each do |patron|
+          @logger.info "Starting scrape for patron: #{patron[:name]}"
+          scrape_patron(patron, browser)
+        rescue => e
+          @logger.error "Failed to scrape patron #{patron[:name]}: #{e.message}"
+          @data_store.log_scrape_attempt(patron[:name], false, {}, e.message)
+        end
+      ensure
+        browser.close
+      end
     end
   end
 
@@ -125,85 +149,86 @@ class LibraryScraper
     patrons
   end
 
-  def scrape_patron(patron)
+  # Each patron gets a fresh browser context, so cookies and the logged-in
+  # session do not leak from one library account to the next. The browser
+  # itself is shared across patrons and closed by the caller.
+  def scrape_patron(patron, browser)
     patron_start_time = Time.now
     @logger.info "\n" + "█" * 80
     @logger.info "█ STARTING FULL SCRAPE FOR PATRON: #{patron[:name]}"
     @logger.info "█" * 80
 
-    Playwright.create(playwright_cli_executable_path: "npx playwright") do |playwright|
-      browser = playwright.chromium.launch(headless: @headless)
-      context = browser.new_context
-      page = context.new_page
+    context = browser.new_context
+    page = context.new_page
 
-      begin
-        login_start = Time.now
-        @logger.info "\nLogging in to library..."
-        login_to_library(page, patron)
-        login_elapsed = Time.now - login_start
-        @logger.info "Login complete in #{format_duration(login_elapsed)}"
+    begin
+      login_start = Time.now
+      @logger.info "\nLogging in to library..."
+      login_to_library(page, patron)
+      login_elapsed = Time.now - login_start
+      @logger.info "Login complete in #{format_duration(login_elapsed)}"
 
-        checkouts = scrape_checkouts(page, patron[:name])
-        holds = scrape_holds(page, patron[:name])
+      checkouts = scrape_checkouts(page, patron[:name])
+      holds = scrape_holds(page, patron[:name])
 
-        # Update data store
-        @logger.info "\nUpdating data store..."
-        data_store_start = Time.now
+      # Update data store
+      @logger.info "\nUpdating data store..."
+      data_store_start = Time.now
 
-        all_checkouts = @data_store.get_checkouts
-        all_holds = @data_store.get_holds
+      all_checkouts = @data_store.get_checkouts
+      all_holds = @data_store.get_holds
 
-        previous_checkouts = all_checkouts.select { |item| item["patron_name"] == patron[:name] }
-        previous_holds = all_holds.select { |item| item["patron_name"] == patron[:name] }
+      previous_checkouts = all_checkouts.select { |item| item["patron_name"] == patron[:name] }
+      previous_holds = all_holds.select { |item| item["patron_name"] == patron[:name] }
 
-        # Remove old data for this patron and add new data
-        all_checkouts.reject! { |item| item["patron_name"] == patron[:name] }
-        all_holds.reject! { |item| item["patron_name"] == patron[:name] }
+      # Remove old data for this patron and add new data
+      all_checkouts.reject! { |item| item["patron_name"] == patron[:name] }
+      all_holds.reject! { |item| item["patron_name"] == patron[:name] }
 
-        all_checkouts.concat(checkouts)
-        all_holds.concat(holds)
+      all_checkouts.concat(checkouts)
+      all_holds.concat(holds)
 
-        # Track item transitions and snapshot using ItemTracker.
-        # Order matters: detect_transitions compares against the latest stored
-        # snapshot, so it must run before this scrape is recorded.
-        scraped_at = Time.now.iso8601
-        @item_tracker.detect_transitions(checkouts, holds, patron[:name], scraped_at)
-        @item_tracker.record_snapshot(checkouts, holds, patron[:name], scraped_at)
+      # Track item transitions and snapshot using ItemTracker.
+      # Order matters: detect_transitions compares against the latest stored
+      # snapshot, so it must run before this scrape is recorded.
+      scraped_at = Time.now.iso8601
+      @item_tracker.detect_transitions(checkouts, holds, patron[:name], scraped_at)
+      @item_tracker.record_snapshot(checkouts, holds, patron[:name], scraped_at)
 
-        # BiblioCommons intermittently serves an incomplete list, so an item
-        # absent from one scrape has usually not actually gone anywhere. Keep
-        # recently-missing items on the page, flagged, and only drop them once
-        # they have been absent for MISSING_SCRAPES_BEFORE_REMOVAL scrapes.
-        all_checkouts.concat(retained_missing(previous_checkouts, checkouts, patron[:name]))
-        all_holds.concat(retained_missing(previous_holds, holds, patron[:name]))
+      # BiblioCommons intermittently serves an incomplete list, so an item
+      # absent from one scrape has usually not actually gone anywhere. Keep
+      # recently-missing items on the page, flagged, and only drop them once
+      # they have been absent for MISSING_SCRAPES_BEFORE_REMOVAL scrapes.
+      all_checkouts.concat(retained_missing(previous_checkouts, checkouts, patron[:name]))
+      all_holds.concat(retained_missing(previous_holds, holds, patron[:name]))
 
-        unexpected_count = @item_tracker.get_unexpected_transitions(1).count { |t| t["patron_name"] == patron[:name] }
+      unexpected_count = @item_tracker.get_unexpected_transitions(1).count { |t| t["patron_name"] == patron[:name] }
 
-        @data_store.save_checkouts(all_checkouts)
-        @data_store.save_holds(all_holds)
+      @data_store.save_checkouts(all_checkouts)
+      @data_store.save_holds(all_holds)
 
-        @data_store.log_scrape_attempt(
-          patron[:name],
-          true,
-          {
-            checkouts: checkouts.length,
-            holds: holds.length,
-            unexpected_transitions: unexpected_count
-          }
-        )
+      @data_store.log_scrape_attempt(
+        patron[:name],
+        true,
+        {
+          checkouts: checkouts.length,
+          holds: holds.length,
+          unexpected_transitions: unexpected_count
+        }
+      )
 
-        data_store_elapsed = Time.now - data_store_start
-        patron_elapsed = Time.now - patron_start_time
+      data_store_elapsed = Time.now - data_store_start
+      patron_elapsed = Time.now - patron_start_time
 
-        @logger.info "Data store updated in #{format_duration(data_store_elapsed)}"
-        @logger.info "\n" + "█" * 80
-        @logger.info "█ PATRON SCRAPE COMPLETE: #{patron[:name]}"
-        @logger.info "█ Checkouts: #{checkouts.length} | Holds: #{holds.length} | Unexpected: #{unexpected_count}"
-        @logger.info "█ Total time: #{format_duration(patron_elapsed)}"
-        @logger.info "█" * 80
-      ensure
-        browser.close
-      end
+      @logger.info "Data store updated in #{format_duration(data_store_elapsed)}"
+      @logger.info "\n" + "█" * 80
+      @logger.info "█ PATRON SCRAPE COMPLETE: #{patron[:name]}"
+      @logger.info "█ Checkouts: #{checkouts.length} | Holds: #{holds.length} | Unexpected: #{unexpected_count}"
+      @logger.info "█ Total time: #{format_duration(patron_elapsed)}"
+      @logger.info "█" * 80
+    ensure
+      # Only the context: the browser belongs to the caller and is reused.
+      context.close
     end
   end
 
@@ -216,8 +241,8 @@ class LibraryScraper
     @logger.debug "Navigating directly to login page: #{login_url}"
     page.goto(login_url)
 
-    # Wait a moment for the login form to load
-    sleep(2)
+    # No fixed wait here: the username selector loop below already waits for
+    # the field to appear, and page.goto has returned by this point.
 
     # Debug: Log the current page title and URL to see where we are
     @logger.debug "Current page title: #{page.title}"
@@ -316,8 +341,8 @@ class LibraryScraper
     @logger.debug "Navigating to checkouts page: #{checkout_url}"
     page.goto(checkout_url)
 
-    # Wait for page to load
-    sleep(self.class.page_settle_seconds * 1.5)
+    # No fixed wait here: page.goto has already returned, and the loop below
+    # waits for the item container on every page including this one.
 
     @logger.debug "Checkouts page title: #{page.title}"
     @logger.debug "Checkouts page URL: #{page.url}"
@@ -333,7 +358,7 @@ class LibraryScraper
 
       # Find checkout items using the correct selectors
       begin
-        page.wait_for_selector(CHECKOUTS_CONTAINER_SELECTOR, timeout: 5000)
+        page.wait_for_selector(CHECKOUTS_CONTAINER_SELECTOR, timeout: CONTAINER_TIMEOUT_MS)
         checkout_items = page.locator(CHECKOUT_ITEM_SELECTOR).all
         @logger.info "Found #{checkout_items.length} checkout items on page #{current_page}"
         dump_page_html(page, "checkouts_page#{current_page}")
@@ -489,8 +514,7 @@ class LibraryScraper
     @logger.debug "Navigating to holds page: #{holds_url}"
     page.goto(holds_url)
 
-    # Wait for page to load
-    sleep(self.class.page_settle_seconds * 1.5)
+    # No fixed wait here; see scrape_checkouts.
 
     @logger.debug "Holds page title: #{page.title}"
     @logger.debug "Holds page URL: #{page.url}"
@@ -506,7 +530,7 @@ class LibraryScraper
 
       # Find hold items using the correct selectors
       begin
-        page.wait_for_selector(HOLDS_CONTAINER_SELECTOR, timeout: 5000)
+        page.wait_for_selector(HOLDS_CONTAINER_SELECTOR, timeout: CONTAINER_TIMEOUT_MS)
         hold_items = page.locator(HOLD_ITEM_SELECTOR).all
         dump_page_html(page, "holds_page#{current_page}")
         @logger.info "Found #{hold_items.length} hold items on page #{current_page}"

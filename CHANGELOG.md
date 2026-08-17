@@ -7,6 +7,20 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-08-17
+
+### Changed
+
+- **Scrapes are about 40% faster**, roughly 2 minutes down to 65 seconds for
+  four patrons. Fixed delays after each page load were replaced with waits on
+  the item list itself: `page.goto` had already returned, and the list was
+  measurably present within a few hundredths of a second, so the delay was
+  idling rather than letting anything settle. The scrape also uses one browser
+  for the whole run instead of launching a fresh one per patron; each patron
+  still gets its own browser context, so sessions stay isolated.
+  `PAGE_SETTLE_SECONDS` is now the courtesy gap between requests and defaults
+  to 0.5s.
+
 ## 2026-08-16
 
 ### Added

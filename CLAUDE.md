@@ -98,6 +98,9 @@ Optional configuration:
   `TZ` takes precedence.
 - `MISSING_SCRAPES_BEFORE_REMOVAL=3` - Consecutive scrapes that may miss an
   item before it is dropped from the interface
+- `PAGE_SETTLE_SECONDS=0.5` - Courtesy pause between page requests. Not a
+  wait for content: navigations wait on the item list itself. Raise it to be
+  gentler on the library's servers.
 
 ## API Endpoints
 
