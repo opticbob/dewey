@@ -238,12 +238,30 @@ class DataStore
 
   private
 
+  # Far-future stand-in for a date that is missing or unparseable, so those
+  # items sort to the end rather than the beginning.
+  UNDATED = 365 * 24 * 60 * 60
+
+  # Breaks ties in every sort below. Without it the order of items sharing a
+  # sort key is arbitrary: sort_by is not stable, and the array it works on is
+  # rebuilt each scrape (each patron's items are removed and re-appended, with
+  # retained-missing items added after the fresh ones), so equal-key rows could
+  # swap places between scrapes for no visible reason. Due dates are dates
+  # rather than timestamps and holds share queue positions, so ties are common.
+  # item_id is included to stay deterministic for two copies of one title.
+  def tiebreak(item)
+    [item["title"].to_s, item["item_id"].to_s]
+  end
+
   def sort_checkouts(checkouts)
     # Sort by due date (earliest first)
     checkouts.sort_by do |item|
-      Time.parse(item["due_date"])
-    rescue
-      Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end (1 year from now)
+      due = begin
+        Time.parse(item["due_date"])
+      rescue
+        Time.now + UNDATED # Put items with invalid dates at the end (1 year from now)
+      end
+      [due, *tiebreak(item)]
     end
   end
 
@@ -275,25 +293,27 @@ class DataStore
     # Sort ready holds by checkout_by date (earliest deadline first)
     sorted_ready = ready_holds.sort_by do |item|
       deadline = item["checkout_by"] || item["expires_on"]
-      if deadline
-        begin
-          Time.parse(deadline)
-        rescue
-          Time.now + (365 * 24 * 60 * 60) # Put items with invalid dates at the end
+      parsed =
+        if deadline
+          begin
+            Time.parse(deadline)
+          rescue
+            Time.now + UNDATED # Put items with invalid dates at the end
+          end
+        else
+          Time.now + UNDATED # Put items without dates at the end
         end
-      else
-        Time.now + (365 * 24 * 60 * 60) # Put items without dates at the end
-      end
+      [parsed, *tiebreak(item)]
     end
 
     # Sort active not-ready holds by queue position
     sorted_active = active_holds.sort_by do |item|
-      item["queue_position"] || 999 # Put items without position at the end
+      [item["queue_position"] || 999, *tiebreak(item)] # Put items without position at the end
     end
 
     # Sort paused holds by queue position
     sorted_paused = paused_holds.sort_by do |item|
-      item["queue_position"] || 999 # Put items without position at the end
+      [item["queue_position"] || 999, *tiebreak(item)] # Put items without position at the end
     end
 
     # Return ready holds first, then active holds, then paused holds

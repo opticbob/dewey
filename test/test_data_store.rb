@@ -56,6 +56,69 @@ class TestDataStore < Minitest::Test
     assert_equal %w[good bad], ids
   end
 
+  # Ties are the common case, not an edge case: due dates are dates rather
+  # than timestamps, so a batch borrowed together shares one. sort_by is not
+  # stable and the array is rebuilt each scrape, so without a tiebreaker these
+  # rows could swap places between scrapes with nothing having changed.
+  def test_checkouts_with_the_same_due_date_are_ordered_by_title
+    same_day = (Date.today + 7).to_s
+    @store.save_checkouts([
+      checkout(item_id: "c", title: "Cherry", due_date: same_day),
+      checkout(item_id: "a", title: "Apple", due_date: same_day),
+      checkout(item_id: "b", title: "Banana", due_date: same_day)
+    ])
+
+    ids = @store.get_all_data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[a b c], ids
+  end
+
+  def test_checkout_order_is_stable_however_the_input_is_arranged
+    same_day = (Date.today + 7).to_s
+    items = 12.times.map do |i|
+      checkout(item_id: "id#{i}", title: "Title #{i}", due_date: same_day)
+    end
+
+    orders = 6.times.map do |seed|
+      @store.save_checkouts(items.shuffle(random: Random.new(seed)))
+      @store.get_all_data[:checkouts].map { |i| i["item_id"] }
+    end
+
+    assert_equal 1, orders.uniq.length, "checkout order varied with input order"
+  end
+
+  def test_checkouts_sharing_a_title_are_ordered_by_item_id
+    same_day = (Date.today + 7).to_s
+    @store.save_checkouts([
+      checkout(item_id: "copy2", title: "Dune", due_date: same_day),
+      checkout(item_id: "copy1", title: "Dune", due_date: same_day)
+    ])
+
+    ids = @store.get_all_data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[copy1 copy2], ids
+  end
+
+  def test_holds_sharing_a_queue_position_are_ordered_by_title
+    @store.save_holds([
+      hold(item_id: "z", title: "Zebra", status: "not ready", queue_position: 4),
+      hold(item_id: "m", title: "Mango", status: "not ready", queue_position: 4),
+      hold(item_id: "a", title: "Apricot", status: "not ready", queue_position: 4)
+    ])
+
+    ids = @store.get_all_data[:holds].map { |i| i["item_id"] }
+    assert_equal %w[a m z], ids
+  end
+
+  def test_ready_holds_sharing_a_deadline_are_ordered_by_title
+    deadline = (Date.today + 3).to_s
+    @store.save_holds([
+      hold(item_id: "s", title: "Second", status: "ready", checkout_by: deadline),
+      hold(item_id: "f", title: "First", status: "ready", checkout_by: deadline)
+    ])
+
+    ids = @store.get_all_data[:holds].map { |i| i["item_id"] }
+    assert_equal %w[f s], ids
+  end
+
   def test_holds_ordered_ready_then_waiting_then_paused
     @store.save_holds([
       hold(item_id: "paused", status: "paused", queue_position: 1),

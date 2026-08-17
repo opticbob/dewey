@@ -17,6 +17,12 @@ says what changed from a user's point of view, not which files moved.
 
 ### Fixed
 
+- **Items sharing a due date no longer reshuffle between scrapes.** Checkouts
+  borrowed together share a due date, and holds often share a queue position;
+  those rows had no defined order, so they could swap places from one scrape to
+  the next with nothing about them having changed. Tied items are now ordered
+  by title, and by item id for two copies of the same title.
+
 - **Fewer scrapes lost to slow library pages.** A patron's scrape was thrown
   away whenever BiblioCommons took more than 30 seconds to finish serving a
   page's images, fonts and third-party scripts, even though the item list
