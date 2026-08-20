@@ -284,20 +284,32 @@ class TestLibraryScraper < Minitest::Test
     assert_equal 1, kept.first["missing_scrapes"]
   end
 
+  # Driven off the configured threshold rather than a literal, so tuning the
+  # default does not require editing the test to match.
   def test_missing_item_is_dropped_after_the_threshold
     tracker = @scraper.instance_variable_get(:@item_tracker)
+    threshold = LibraryScraper.missing_scrapes_before_removal
     previous = [checkout(item_id: "1")]
 
     tracker.detect_transitions(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
     tracker.record_snapshot(previous, [], "Josh", "2026-08-13T01:00:00+00:00")
-    (2..4).each do |h|
+
+    # One miss short of the threshold: still shown, flagged with the count.
+    (2..threshold).each do |h|
       at = format("2026-08-13T%02d:00:00+00:00", h)
       tracker.detect_transitions([], [], "Josh", at)
       tracker.record_snapshot([], [], "Josh", at)
     end
+    assert_equal threshold - 1, tracker.missing_scrape_count("1", "Josh")
+    assert_equal 1, @scraper.send(:retained_missing, previous, [], "Josh").length,
+      "an item under the threshold must stay on the page"
 
-    # Three scrapes have now missed it, which is the default threshold.
-    assert_equal 3, tracker.missing_scrape_count("1", "Josh")
+    # The miss that reaches the threshold drops it.
+    at = format("2026-08-13T%02d:00:00+00:00", threshold + 1)
+    tracker.detect_transitions([], [], "Josh", at)
+    tracker.record_snapshot([], [], "Josh", at)
+
+    assert_equal threshold, tracker.missing_scrape_count("1", "Josh")
     assert_empty @scraper.send(:retained_missing, previous, [], "Josh")
   end
 

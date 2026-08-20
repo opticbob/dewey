@@ -7,6 +7,18 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-08-20
+
+### Changed
+
+- **Items now survive five missed scrapes instead of three** before being
+  dropped from the interface. Two items had been recorded missing for four
+  consecutive scrapes and later came back, meaning they had disappeared from
+  the page and silently reappeared with nothing to indicate they had ever
+  gone. A blip that long is rare, but dropping an item that is still checked
+  out is worse than showing it flagged for an extra couple of hours. Set
+  `MISSING_SCRAPES_BEFORE_REMOVAL` to change it.
+
 ## 2026-08-17
 
 ### Added

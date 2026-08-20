@@ -50,7 +50,7 @@ class LibraryScraper
   # gone; it is usually back on the next scrape. Until this many scrapes have
   # missed it, the item stays on the page flagged as missing.
   def self.missing_scrapes_before_removal
-    Integer(ENV.fetch("MISSING_SCRAPES_BEFORE_REMOVAL", "3"))
+    Integer(ENV.fetch("MISSING_SCRAPES_BEFORE_REMOVAL", "5"))
   end
 
   # Bibliocommons CSS selectors for Lawrence Public Library

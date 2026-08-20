@@ -96,7 +96,7 @@ Optional configuration:
 - `DISPLAY_TIME_ZONE=America/Chicago` - Zone for displayed times. The
   container has no timezone set and would otherwise show UTC. An explicit
   `TZ` takes precedence.
-- `MISSING_SCRAPES_BEFORE_REMOVAL=3` - Consecutive scrapes that may miss an
+- `MISSING_SCRAPES_BEFORE_REMOVAL=5` - Consecutive scrapes that may miss an
   item before it is dropped from the interface
 - `PAGE_SETTLE_SECONDS=0.5` - Courtesy pause between page requests. Not a
   wait for content: navigations wait on the item list itself. Raise it to be
