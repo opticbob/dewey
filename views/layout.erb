@@ -83,6 +83,19 @@
             background-color: rgba(255,255,255,0.2);
         }
 
+        /* Checkout count beside a patron's name in the header. Tinted rather
+           than a separate colour so it reads as part of the link. */
+        .nav-count {
+            display: inline-block;
+            margin-left: 0.4rem;
+            padding: 0.05rem 0.45rem;
+            border-radius: 999px;
+            background-color: rgba(255,255,255,0.25);
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
         main {
             padding: 2rem 0;
             min-height: calc(100vh - 140px);
@@ -842,7 +855,11 @@
                     <a href="/">Dashboard</a>
                     <% if @data && @data[:stats] && @data[:stats][:patrons] %>
                         <% @data[:stats][:patrons].each do |patron| %>
-                            <a href="/patron/<%= ERB::Util.url_encode(patron) %>"><%= patron %></a>
+                            <% checkout_count = @data[:stats][:checkouts_by_patron]&.fetch(patron, 0) || 0 %>
+                            <a href="/patron/<%= ERB::Util.url_encode(patron) %>"
+                               title="<%= patron %> has <%= checkout_count %> <%= (checkout_count == 1) ? "checkout" : "checkouts" %>">
+                                <%= patron %><span class="nav-count"><%= checkout_count %></span>
+                            </a>
                         <% end %>
                     <% end %>
                     <a href="/api/status">API</a>

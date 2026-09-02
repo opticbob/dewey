@@ -7,6 +7,15 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-09-02
+
+### Added
+
+- **The header now shows how many items each family member has checked out**,
+  as a count beside their name, so the split across the family is visible from
+  any page without opening each patron in turn. A patron with holds but no
+  checkouts shows zero.
+
 ## 2026-08-20
 
 ### Changed

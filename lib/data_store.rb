@@ -408,7 +408,12 @@ class DataStore
       items_overdue: items_overdue,
       items_due_soon: items_due_soon,
       due_soon_days: due_soon_days,
-      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact.sort
+      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact.sort,
+      # Per-patron checkout counts, for the header links. A patron with only
+      # holds still needs an entry, so default every known name to zero.
+      checkouts_by_patron: (checkouts + holds).map { |item| item["patron_name"] }.compact.uniq
+        .each_with_object({}) { |name, counts| counts[name] = 0 }
+        .merge(checkouts.map { |item| item["patron_name"] }.compact.tally)
     }
   end
 end

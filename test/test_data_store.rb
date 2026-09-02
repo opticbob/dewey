@@ -178,6 +178,19 @@ class TestDataStore < Minitest::Test
     assert_equal %w[Jett Josh], stats[:patrons]
   end
 
+  def test_stats_count_checkouts_per_patron
+    @store.save_checkouts([
+      checkout(item_id: "1", patron_name: "Josh"),
+      checkout(item_id: "2", patron_name: "Josh"),
+      checkout(item_id: "3", patron_name: "Jett")
+    ])
+    # Ada has a hold but nothing checked out, so she must still appear at zero.
+    @store.save_holds([hold(item_id: "h1", patron_name: "Ada")])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal({"Josh" => 2, "Jett" => 1, "Ada" => 0}, stats[:checkouts_by_patron])
+  end
+
   def test_stats_split_digital_and_physical
     @store.save_checkouts([
       checkout(item_id: "1", type: "eBook"),
