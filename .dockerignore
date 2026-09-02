@@ -1,0 +1,15 @@
+# The image builds its own gems in the first stage; a local vendor/ or
+# .bundle/ from a developer machine would overwrite them at COPY . . and
+# leave the app pointing at gems built for the wrong platform.
+.bundle
+vendor
+
+.git
+.github
+data
+test
+node_modules
+*.md
+.env
+.env.*
+!.env.example

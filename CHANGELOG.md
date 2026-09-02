@@ -9,6 +9,13 @@ says what changed from a user's point of view, not which files moved.
 
 ## 2026-09-02
 
+### Changed
+
+- **The Docker image is 45% smaller**, 2.87GB down to 1.57GB. Gems are now
+  built in a separate stage so the C toolchain needed to compile them is no
+  longer shipped to production. Deploys pull faster and the server holds more
+  than a couple of images at a time.
+
 ### Added
 
 - **The header now shows how many items each family member has checked out**,

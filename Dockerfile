@@ -1,18 +1,13 @@
-FROM ruby:4.0.6-slim
-
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Two stages, so the compilers used to build native gems do not ship to
+# production. build-essential and git are ~400MB and are only ever needed by
+# `bundle install`; the runtime stage takes the built gems and leaves the
+# toolchain behind.
+FROM ruby:4.0.6-slim AS gems
 
 RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    gnupg \
-    git \
     build-essential \
+    git \
     && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
-    && apt-get install -y nodejs
 
 WORKDIR /app
 
@@ -23,7 +18,15 @@ RUN bundle lock --add-platform x86_64-linux \
     && bundle config set --local without "development test" \
     && bundle install
 
+
+FROM ruby:4.0.6-slim
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+# curl is needed by the healthcheck; the rest are Chromium's runtime libraries.
 RUN apt-get update && apt-get install -y \
+    curl \
     fonts-unifont \
     libasound2t64 \
     libatk-bridge2.0-0t64 \
@@ -48,18 +51,32 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash app
+
+WORKDIR /app
+
 # Must match Playwright::COMPATIBLE_PLAYWRIGHT_VERSION from the playwright-ruby-client gem
 RUN npm init -y \
     && npm install playwright@1.60.0 \
     && npx playwright install chromium
 
+# The built gems, plus the bundle config that points Ruby at them. The config
+# is not in /app/.bundle: the ruby base image sets BUNDLE_APP_CONFIG, so
+# `bundle config --local` writes to /usr/local/bundle/config instead.
+# Both come from the build stage already owned by app, so nothing needs a
+# chown -R afterwards -- that rewrites every file into a new 44MB layer.
+COPY --from=gems --chown=app:app /app/vendor /app/vendor
+COPY --from=gems --chown=app:app /usr/local/bundle/config /usr/local/bundle/config
+
 RUN mkdir -p /app/data /app/data/thumbnails \
+    && chown -R app:app /app/data \
     && chmod 777 /app/data /app/data/thumbnails
 
-COPY . .
-
-RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+COPY --chown=app:app . .
 
 USER app
 

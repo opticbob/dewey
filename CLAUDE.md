@@ -158,6 +158,80 @@ To customize the scraper for your library system:
 4. Find CSS selectors for checkout and holds data
 5. Update the selectors in `lib/library_scraper.rb`
 
+## Deploying to the Proxmox Homelab
+
+Deploys are pull-based and manual: pushing to `main` builds the image, but
+nothing on the server picks it up on its own.
+
+**Where it runs.** SSH is `root@proxmox`. The stack lives in **LXC container
+107** (`apps`), in `/root/apps/dewey`, behind Caddy on port 80. The Dewey
+container itself does not publish a port. Commands run through `pct exec`,
+which needs no second SSH hop:
+
+```bash
+ssh root@proxmox 'pct exec 107 -- sh -c "cd /root/apps/dewey && docker compose ps"'
+```
+
+**Deploy.** Wait for the `Build and Push Docker Image` workflow to finish
+first, or the pull will fetch the previous image:
+
+```bash
+gh run watch <run-id> --exit-status          # or: gh run list --limit 3
+
+ssh root@proxmox 'pct exec 107 -- sh -c "cd /root/apps/dewey && docker compose pull dewey && docker compose up -d dewey"'
+```
+
+**Confirm the image is the commit you expect** before trusting the deploy --
+`:latest` is easy to mistake for current:
+
+```bash
+ssh root@proxmox 'pct exec 107 -- docker inspect ghcr.io/opticbob/dewey:latest \
+    --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}"'
+```
+
+That must equal `git rev-parse HEAD`. Then verify through Caddy, which is the
+path real users take, rather than the container port:
+
+```bash
+ssh root@proxmox 'pct exec 107 -- sh -c "docker inspect dewey-library-tracker --format {{.State.Health.Status}}; curl -sf localhost:80/health"'
+```
+
+**Data is a bind mount** at `/root/apps/dewey/data`, so `docker compose up -d`
+recreating the container is safe -- `item_tracking.db` and the thumbnails
+survive. The `.env` on the server holds the real credentials for four patrons
+and is not in git; the local `.env` has fewer, so local output is not
+representative of production.
+
+### Disk pressure
+
+CT 107's root disk is 16G and each image is ~1.6G, so deploys accumulate.
+The trap: pulling a new `:latest` leaves the previous image **untagged**, and
+`docker images` hides untagged images unless you pass `-a`. 21 of them had
+built up by 2026-09-02, and a pull failed outright with `no space left on
+device`.
+
+`script/prune-dewey-images.sh` (kept on the server at
+`/root/apps/dewey/prune-dewey-images.sh`) clears them, keeping the two most
+recent so the last deploy stays rollback-able:
+
+```bash
+ssh root@proxmox 'pct exec 107 -- sh /root/apps/dewey/prune-dewey-images.sh --dry-run'
+ssh root@proxmox 'pct exec 107 -- sh /root/apps/dewey/prune-dewey-images.sh'
+```
+
+Do **not** use `docker image prune -a` here: it also deletes the local
+`dewey:latest` build and the `dewey:rollback-*` tags, which are kept
+deliberately. `docker builder prune -af` is safe and frees several GB if the
+build cache has grown.
+
+**Rollback** is by digest, since the old image keeps its layers but loses its
+tag. Get the digest before deploying (`docker inspect dewey-library-tracker
+--format '{{.Image}}'`), then point the compose file at it, or:
+
+```bash
+ssh root@proxmox 'pct exec 107 -- docker tag <digest> ghcr.io/opticbob/dewey:latest'
+```
+
 ## GitHub Container Registry Setup
 
 1. Create GitHub Personal Access Token with `packages:write` permission

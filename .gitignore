@@ -42,7 +42,8 @@ ehthumbs.db
 Thumbs.db
 
 # Docker
-.dockerignore
+# .dockerignore is intentionally tracked: the build needs it to keep a local
+# vendor/ or .bundle/ out of the image, and CI builds from a fresh clone.
 
 # Playwright
 /ms-playwright/
