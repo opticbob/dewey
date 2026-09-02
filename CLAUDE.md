@@ -204,7 +204,7 @@ representative of production.
 
 ### Disk pressure
 
-CT 107's root disk is 16G and each image is ~1.6G, so deploys accumulate.
+CT 107's root disk is 16G and each image is ~2.2G, so deploys accumulate.
 The trap: pulling a new `:latest` leaves the previous image **untagged**, and
 `docker images` hides untagged images unless you pass `-a`. 21 of them had
 built up by 2026-09-02, and a pull failed outright with `no space left on
