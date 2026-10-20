@@ -169,6 +169,27 @@ class TestScraperExtraction < Minitest::Test
     end
   end
 
+  # The title link is turned into an absolute URL so the dashboard can link
+  # each item to its catalogue page. The fixtures' record IDs are scrubbed to
+  # a placeholder, so every item shares one.
+  def test_extracts_checkout_record_urls
+    with_fixture("checkouts_page.html") do |page|
+      urls = checkout_items(page).map { |item| @scraper.send(:extract_record_url, item) }
+
+      assert_equal ["https://library.invalid/v2/record/S000C000000"] * 4, urls
+    end
+  end
+
+  def test_extracts_hold_record_urls
+    with_fixture("holds_page.html") do |page|
+      urls = page.locator(LibraryScraper::HOLD_ITEM_SELECTOR).all.map do |item|
+        @scraper.send(:extract_record_url, item)
+      end
+
+      assert_equal ["https://library.invalid/v2/record/S000C000000"] * 2, urls
+    end
+  end
+
   def test_finds_hold_items
     with_fixture("holds_page.html") do |page|
       assert_equal 2, page.locator(LibraryScraper::HOLD_ITEM_SELECTOR).all.length

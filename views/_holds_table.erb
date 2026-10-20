@@ -25,7 +25,11 @@
                     </td>
                     <td class="title-cell">
                         <div class="title-main">
-                            <%= item['title'] %>
+                            <% if item['record_url'] %>
+                                <a href="<%= item['record_url'] %>" class="title-link" target="_blank" rel="noopener"><%= item['title'] %></a>
+                            <% else %>
+                                <%= item['title'] %>
+                            <% end %>
                             <% if item['missing_scrapes'] %>
                                 <span class="missing-badge" title="Not seen in the last <%= item['missing_scrapes'] %> scrape<%= item['missing_scrapes'] == 1 ? '' : 's' %>">
                                     ⚠️ not seen in last <%= item['missing_scrapes'] %> scrape<%= item['missing_scrapes'] == 1 ? '' : 's' %>

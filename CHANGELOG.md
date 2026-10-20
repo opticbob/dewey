@@ -7,6 +7,15 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-10-20
+
+### Added
+
+- **Each title on the dashboard now links to its page on the library's
+  catalogue**, opening in a new tab, so details, other formats and the hold
+  queue are one click away. Items already on the page pick up their link at
+  the next scrape.
+
 ## 2026-09-02
 
 ### Changed

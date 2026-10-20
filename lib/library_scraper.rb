@@ -64,6 +64,9 @@ class LibraryScraper
   CHECKOUTS_CONTAINER_SELECTOR = ".cp-batch-actions-list"
   CHECKOUT_ITEM_SELECTOR = ".batch-actions-list-item-details"
   TITLE_SELECTOR = ".cp-title .title-content"
+  # The title links to the item's public catalogue record, on both the
+  # checkouts and holds pages.
+  RECORD_LINK_SELECTOR = ".cp-title a"
   SUBTITLE_SELECTOR = ".cp-subtitle"
   AUTHOR_SELECTOR = ".cp-author-link a"
   DUE_DATE_SELECTOR = ".cp-short-formatted-date"
@@ -437,6 +440,8 @@ class LibraryScraper
             nil
           end
 
+          record_url = extract_record_url(item)
+
           # Generate a unique ID for this item (used for thumbnail storage)
           item_id = generate_item_id(title, author, patron_name)
 
@@ -457,6 +462,7 @@ class LibraryScraper
             "people_waiting" => people_waiting,
             "patron_name" => patron_name,
             "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
+            "record_url" => record_url,
             "item_id" => item_id
           }
 
@@ -628,6 +634,8 @@ class LibraryScraper
             nil
           end
 
+          record_url = extract_record_url(item)
+
           # Generate a unique ID for this item
           item_id = generate_item_id(title, author, patron_name)
 
@@ -648,6 +656,7 @@ class LibraryScraper
             "expires_on" => expires_on,
             "patron_name" => patron_name,
             "thumbnail_url" => thumbnail_url ? "/thumbnails/#{item_id}.jpg" : "/placeholder.jpg",
+            "record_url" => record_url,
             "item_id" => item_id
           }
 
@@ -751,6 +760,20 @@ class LibraryScraper
     rescue => e
       @logger.warn "Failed to download thumbnail #{url}: #{e.message}"
     end
+  end
+
+  # Absolute URL of the item's catalogue page, or nil if the title has no link.
+  def extract_record_url(item)
+    link = item.locator(RECORD_LINK_SELECTOR)
+    return nil if link.count == 0
+
+    href = link.first.get_attribute("href", timeout: 1000)
+    return nil if href.nil? || href.empty?
+
+    URI.join(ENV["LIBRARY_URL"], href).to_s
+  rescue => e
+    @logger.debug "Could not extract record URL: #{e.message}"
+    nil
   end
 
   def extract_text_with_fallback(item, selectors)
