@@ -164,13 +164,26 @@ Deploys are pull-based and manual: pushing to `main` builds the image, but
 nothing on the server picks it up on its own.
 
 **Where it runs.** SSH is `root@proxmox`. The stack lives in **LXC container
-107** (`apps`), in `/root/apps/dewey`, behind Caddy on port 80. The Dewey
-container itself does not publish a port. Commands run through `pct exec`,
-which needs no second SSH hop:
+107** (`apps`), in `/root/apps/dewey`. Commands run through `pct exec`, which
+needs no second SSH hop:
 
 ```bash
 ssh root@proxmox 'pct exec 107 -- sh -c "cd /root/apps/dewey && docker compose ps"'
 ```
+
+SSH goes over Tailscale SSH, which periodically demands a re-check. The
+command then hangs, printing `To authenticate, visit:
+https://login.tailscale.com/a/...`, until someone opens that link. It carries
+on by itself once approved, so a silent hang is worth checking for the link
+before assuming the server is down.
+
+**How it is reached.** Since 2026-09-21 there is no Caddy and no host port.
+The Dewey container runs with `network_mode: service:dewey-ts`, sharing the
+network namespace of a Tailscale sidecar (`dewey-dewey-ts-1`) that serves it
+at **https://dewey.puma-penny.ts.net** with a tailnet certificate. The sidecar
+must stay in kernel networking mode (`TS_USERSPACE=false`): userspace mode
+proxies inbound traffic only, so the UI would load while every scrape timed
+out. `localhost:80` inside the LXC answers nothing now.
 
 **Deploy.** Wait for the `Build and Push Docker Image` workflow to finish
 first, or the pull will fetch the previous image:
@@ -189,12 +202,17 @@ ssh root@proxmox 'pct exec 107 -- docker inspect ghcr.io/opticbob/dewey:latest \
     --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}"'
 ```
 
-That must equal `git rev-parse HEAD`. Then verify through Caddy, which is the
-path real users take, rather than the container port:
+That must equal `git rev-parse HEAD`. Then verify through the tailnet
+hostname, which is the path real users take. From any machine on the tailnet:
 
 ```bash
-ssh root@proxmox 'pct exec 107 -- sh -c "docker inspect dewey-library-tracker --format {{.State.Health.Status}}; curl -sf localhost:80/health"'
+ssh root@proxmox 'pct exec 107 -- docker inspect dewey-library-tracker --format {{.State.Health.Status}}'
+curl -s https://dewey.puma-penny.ts.net/health
 ```
+
+The container starts a scrape on boot, so `/health` shows
+`"scrape_running":true` for the first minute or so and `POST /refresh` is a
+no-op until it finishes.
 
 **Data is a bind mount** at `/root/apps/dewey/data`, so `docker compose up -d`
 recreating the container is safe -- `item_tracking.db` and the thumbnails
@@ -204,8 +222,8 @@ representative of production.
 
 ### Disk pressure
 
-CT 107's root disk is 16G and each image is ~2.2G, so deploys accumulate.
-The trap: pulling a new `:latest` leaves the previous image **untagged**, and
+CT 107's root disk is 32G (grown from 16G) and each image is ~2.2G, so
+deploys accumulate. The trap: pulling a new `:latest` leaves the previous image **untagged**, and
 `docker images` hides untagged images unless you pass `-a`. 21 of them had
 built up by 2026-09-02, and a pull failed outright with `no space left on
 device`.
