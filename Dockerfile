@@ -2,7 +2,7 @@
 # production. build-essential and git are ~400MB and are only ever needed by
 # `bundle install`; the runtime stage takes the built gems and leaves the
 # toolchain behind.
-FROM ruby:4.0.6-slim AS gems
+FROM ruby:4.0.9-slim AS gems
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -19,7 +19,7 @@ RUN bundle lock --add-platform x86_64-linux \
     && bundle install
 
 
-FROM ruby:4.0.6-slim
+FROM ruby:4.0.9-slim
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1

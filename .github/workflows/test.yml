@@ -18,7 +18,7 @@ jobs:
       uses: ruby/setup-ruby@v1
       with:
         # Matches the version pinned in Gemfile and mise.toml
-        ruby-version: '4.0.6'
+        ruby-version: '4.0.9'
         bundler-cache: true
 
     # The extraction tests parse saved markup in a real browser. Without this

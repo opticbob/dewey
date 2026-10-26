@@ -7,6 +7,16 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-10-26
+
+### Changed
+
+- **The Docker image now runs on Ruby 4.0.9** (from 4.0.6), picking up the
+  October 2026 security fixes: Ruby's regex-engine memory bugs, Node 24.22.1's
+  Brotli decoder fix (CVE-2026-111497) and its updated CA store, which no
+  longer trusts the compromised eMudhra intermediates, and Debian's patched
+  libbrotli1. Nothing changes in how Dewey behaves.
+
 ## 2026-10-20
 
 ### Added
