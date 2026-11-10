@@ -1,15 +1,17 @@
 <% @page_title = "#{@patron_name} - Dewey Library Tracker" %>
+<% patron_path = "/patron/#{ERB::Util.url_encode(@patron_name)}" %>
 
 <div class="section-header">
     <h1 class="section-title">📚 <%= @patron_name %>'s Library Activity</h1>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <%= erb :_format_filter, locals: { base_path: patron_path } %>
         <% if @data && @data[:last_updated] %>
             <div style="font-size: 0.85rem; color: #666;">
                 Scraped <%= relative_time(@data[:last_updated]) %>
             </div>
         <% end %>
         <div>
-            <a href="/" style="margin-right: 1rem; color: #667eea; text-decoration: none;">← Back to Family Dashboard</a>
+            <a href="<%= with_format("/", @format) %>" style="margin-right: 1rem; color: #667eea; text-decoration: none;">← Back to Family Dashboard</a>
             <form method="post" action="/refresh" style="display: inline;">
                 <button type="submit" class="refresh-btn">🔄 Refresh Now</button>
             </form>
@@ -20,7 +22,7 @@
 <%= erb :_scrape_failures, locals: { failures: @scrape_failures } %>
 
 <% if @data && @data[:stats] %>
-    <%= erb :_stats_grid, locals: { stats: @data[:stats], show_patrons: false } %>
+    <%= erb :_stats_grid, locals: { stats: @data[:stats], show_patrons: false, show_breakdown: @format.nil? } %>
 <% end %>
 
 <% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>
@@ -34,8 +36,13 @@
 <% if (!@data || (@data[:checkouts]&.empty? && @data[:holds]&.empty?)) %>
     <div class="empty-state">
         <div class="empty-state-icon">📚</div>
-        <h3><%= @patron_name %> has no current library activity</h3>
-        <p>No current checkouts or holds. Try refreshing to check for recent activity.</p>
+        <% if @format %>
+            <h3><%= @patron_name %> has no <%= @format %> items right now</h3>
+            <p><a href="<%= patron_path %>">Show all items</a></p>
+        <% else %>
+            <h3><%= @patron_name %> has no current library activity</h3>
+            <p>No current checkouts or holds. Try refreshing to check for recent activity.</p>
+        <% end %>
     </div>
 <% end %>
 

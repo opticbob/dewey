@@ -306,6 +306,36 @@
             background: #5a6fd8;
         }
 
+        /* All / Physical / Digital toggle: a segmented control whose current
+           choice is filled in. */
+        .format-filter {
+            display: inline-flex;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .format-filter a {
+            padding: 0.4rem 0.9rem;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+
+        .format-filter a + a {
+            border-left: 1px solid #667eea;
+        }
+
+        .format-filter a:hover {
+            background: #eef0fc;
+        }
+
+        .format-filter a[aria-current="page"] {
+            background: #667eea;
+            color: white;
+        }
+
         .last-updated {
             color: #666;
             font-size: 0.9rem;
@@ -861,11 +891,11 @@
                     Dewey Library Tracker
                 </a>
                 <nav class="nav-links">
-                    <a href="/">Dashboard</a>
+                    <a href="<%= with_format("/", @format) %>">Dashboard</a>
                     <% if @data && @data[:stats] && @data[:stats][:patrons] %>
                         <% @data[:stats][:patrons].each do |patron| %>
                             <% checkout_count = @data[:stats][:checkouts_by_patron]&.fetch(patron, 0) || 0 %>
-                            <a href="/patron/<%= ERB::Util.url_encode(patron) %>"
+                            <a href="<%= with_format("/patron/#{ERB::Util.url_encode(patron)}", @format) %>"
                                title="<%= patron %> has <%= checkout_count %> <%= (checkout_count == 1) ? "checkout" : "checkouts" %>">
                                 <%= patron %><span class="nav-count"><%= checkout_count %></span>
                             </a>

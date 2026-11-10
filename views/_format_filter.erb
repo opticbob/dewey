@@ -1,0 +1,10 @@
+<%#
+  All / Physical / Digital toggle, shared by the dashboard and the patron
+  pages. Plain links rather than a form, so each view has its own URL and
+  works without JavaScript. `base_path` is the page the links point back to.
+%>
+<nav class="format-filter" aria-label="Show items by format">
+    <% [[nil, "All"], ["physical", "Physical"], ["digital", "Digital"]].each do |value, label| %>
+        <a href="<%= with_format(base_path, value) %>"<%= ' aria-current="page"' if value == @format %>><%= label %></a>
+    <% end %>
+</nav>

@@ -76,6 +76,82 @@ class TestAppRefresh < Minitest::Test
     end
   end
 
+  def seed_mixed_formats
+    store = DeweyApp.shared_data_store
+    store.save_checkouts([
+      {"item_id" => "1", "patron_name" => "Josh", "title" => "Moby-Dick",
+       "due_date" => (Date.today + 7).to_s, "type" => "Book"},
+      {"item_id" => "2", "patron_name" => "Josh", "title" => "Persuasion",
+       "due_date" => (Date.today + 7).to_s, "type" => "eBook"}
+    ])
+    store.save_holds([])
+  end
+
+  def test_format_filter_narrows_both_pages
+    seed_mixed_formats
+
+    ["/", "/patron/Josh"].each do |path|
+      get "#{path}?format=digital"
+      assert_equal 200, last_response.status, "#{path} should render"
+      assert_includes last_response.body, "Persuasion", "#{path} should show the eBook"
+      refute_includes last_response.body, "Moby-Dick", "#{path} should hide the book"
+
+      get "#{path}?format=physical"
+      assert_includes last_response.body, "Moby-Dick"
+      refute_includes last_response.body, "Persuasion"
+
+      get path
+      assert_includes last_response.body, "Moby-Dick"
+      assert_includes last_response.body, "Persuasion"
+    end
+  end
+
+  def test_an_unknown_format_shows_everything
+    seed_mixed_formats
+
+    get "/?format=vinyl"
+    assert_includes last_response.body, "Moby-Dick"
+    assert_includes last_response.body, "Persuasion"
+  end
+
+  def test_format_toggle_marks_the_current_choice
+    seed_mixed_formats
+
+    get "/?format=physical"
+    assert_includes last_response.body, '<a href="/?format=physical" aria-current="page">Physical</a>'
+    assert_includes last_response.body, '<a href="/">All</a>'
+
+    get "/patron/Josh"
+    assert_includes last_response.body, '<a href="/patron/Josh" aria-current="page">All</a>'
+  end
+
+  # Moving between patrons keeps the filter rather than resetting to All.
+  def test_header_links_keep_the_format_filter
+    seed_mixed_formats
+
+    get "/?format=digital"
+    assert_includes last_response.body, 'href="/patron/Josh?format=digital"'
+  end
+
+  def test_empty_filtered_page_offers_a_way_back
+    seed_mixed_formats
+
+    get "/patron/Josh?format=physical"
+    refute_includes last_response.body, "no physical items"
+    DeweyApp.shared_data_store.save_checkouts([])
+
+    get "/patron/Josh?format=physical"
+    assert_includes last_response.body, "Josh has no physical items right now"
+  end
+
+  def test_api_accepts_the_format_filter
+    seed_mixed_formats
+
+    get "/api/status?format=digital"
+    titles = JSON.parse(last_response.body)["checkouts"].map { |i| i["title"] }
+    assert_equal ["Persuasion"], titles
+  end
+
   # A patron's page shows only their own failures.
   def test_patron_page_shows_only_that_patrons_failures
     store = DeweyApp.shared_data_store

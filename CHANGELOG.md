@@ -7,6 +7,23 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-11-10
+
+### Added
+
+- **The dashboard and patron pages can show only physical or only digital
+  items.** An All / Physical / Digital toggle beside Refresh narrows the
+  tables and every stat card (overdue, due soon, ready for pickup) to the
+  chosen format. The choice is kept in the URL, so it can be bookmarked and
+  it carries over when moving between patrons. `/api/status` and
+  `/api/patron/:name` accept the same `?format=physical|digital`.
+
+### Fixed
+
+- **Online magazines are now counted as digital.** They were counted as
+  physical items in the stat cards' physical/digital breakdown, and would
+  have appeared under the new Physical filter.
+
 ## 2026-10-26
 
 ### Changed

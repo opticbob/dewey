@@ -3,6 +3,22 @@ require "fileutils"
 require "time"
 
 class DataStore
+  # Item types the library delivers online, matched as substrings so that
+  # "Online Magazine" counts as well as "eBook". Everything else, including
+  # an unknown type, is treated as physical.
+  DIGITAL_TYPES = ["eBook", "eAudiobook", "Digital", "Online"].freeze
+
+  # The values the dashboard's format filter accepts. No filter means all.
+  FORMATS = %w[physical digital].freeze
+
+  def self.digital_type?(type)
+    !type.nil? && DIGITAL_TYPES.any? { |digital| type.include?(digital) }
+  end
+
+  def self.digital?(item)
+    digital_type?(item["type"])
+  end
+
   attr_reader :data_dir
 
   def initialize(data_dir = "data")
@@ -36,31 +52,38 @@ class DataStore
     read_json_file("holds.json")&.dig("holds") || []
   end
 
-  def get_all_data
+  # `format` is "physical", "digital" or nil for everything. The items and
+  # every stat follow the filter, but the patron list is built from all items
+  # so a patron with only digital items stays in the header under "Physical".
+  def get_all_data(format: nil)
     checkouts_data = read_json_file("checkouts.json") || {}
     holds_data = read_json_file("holds.json") || {}
 
     checkouts = checkouts_data["checkouts"] || []
     holds = holds_data["holds"] || []
+    shown_checkouts = filter_by_format(checkouts, format)
+    shown_holds = filter_by_format(holds, format)
 
     {
-      checkouts: sort_checkouts(checkouts),
-      holds: sort_holds(holds),
-      stats: calculate_stats(checkouts, holds),
+      checkouts: sort_checkouts(shown_checkouts),
+      holds: sort_holds(shown_holds),
+      stats: calculate_stats(shown_checkouts, shown_holds, checkouts + holds),
       last_updated: [checkouts_data["last_updated"], holds_data["last_updated"]].compact.max
     }
   end
 
-  def get_patron_data(patron_name)
+  def get_patron_data(patron_name, format: nil)
     all_data = get_all_data
 
     checkouts = all_data[:checkouts].select { |item| item["patron_name"] == patron_name }
     holds = all_data[:holds].select { |item| item["patron_name"] == patron_name }
+    shown_checkouts = filter_by_format(checkouts, format)
+    shown_holds = filter_by_format(holds, format)
 
     {
-      checkouts: checkouts,
-      holds: holds,
-      stats: calculate_stats(checkouts, holds),
+      checkouts: shown_checkouts,
+      holds: shown_holds,
+      stats: calculate_stats(shown_checkouts, shown_holds, checkouts + holds),
       patron_name: patron_name,
       last_updated: all_data[:last_updated]
     }
@@ -90,16 +113,10 @@ class DataStore
     return unless previous_data
 
     # Identify digital items from previous scrapes
-    previous_digital_items = previous_data.select do |item|
-      digital_types = ["eBook", "eAudiobook", "Digital"]
-      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
-    end
+    previous_digital_items = previous_data.select { |item| self.class.digital?(item) }
 
     # Find current digital items
-    current_digital_items = current_checkouts.select do |item|
-      digital_types = ["eBook", "eAudiobook", "Digital"]
-      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
-    end
+    current_digital_items = current_checkouts.select { |item| self.class.digital?(item) }
 
     # Find missing digital items (were in previous scrape but not in current)
     missing_items = previous_digital_items.reject do |prev_item|
@@ -363,7 +380,17 @@ class DataStore
     File.write(file_path, JSON.pretty_generate(data))
   end
 
-  def calculate_stats(checkouts, holds)
+  def filter_by_format(items, format)
+    case format
+    when "digital" then items.select { |item| self.class.digital?(item) }
+    when "physical" then items.reject { |item| self.class.digital?(item) }
+    else items
+    end
+  end
+
+  # `everyone` is the unfiltered item list, used only to decide which patrons
+  # appear; the counts come from the (possibly filtered) checkouts and holds.
+  def calculate_stats(checkouts, holds, everyone = checkouts + holds)
     today = Date.today
     due_soon_days = ENV.fetch("DUE_SOON_DAYS", "5").to_i
     due_soon_threshold = today + due_soon_days
@@ -385,16 +412,10 @@ class DataStore
     end
 
     # Count physical vs digital items
-    digital_types = ["eBook", "eAudiobook", "Digital"]
-
-    digital_checkouts = checkouts.count do |item|
-      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
-    end
+    digital_checkouts = checkouts.count { |item| self.class.digital?(item) }
     physical_checkouts = checkouts.length - digital_checkouts
 
-    digital_holds = holds.count do |item|
-      item["type"] && digital_types.any? { |type| item["type"].include?(type) }
-    end
+    digital_holds = holds.count { |item| self.class.digital?(item) }
     physical_holds = holds.length - digital_holds
 
     {
@@ -408,10 +429,10 @@ class DataStore
       items_overdue: items_overdue,
       items_due_soon: items_due_soon,
       due_soon_days: due_soon_days,
-      patrons: (checkouts + holds).map { |item| item["patron_name"] }.uniq.compact.sort,
+      patrons: everyone.map { |item| item["patron_name"] }.uniq.compact.sort,
       # Per-patron checkout counts, for the header links. A patron with only
       # holds still needs an entry, so default every known name to zero.
-      checkouts_by_patron: (checkouts + holds).map { |item| item["patron_name"] }.compact.uniq
+      checkouts_by_patron: everyone.map { |item| item["patron_name"] }.compact.uniq
         .each_with_object({}) { |name, counts| counts[name] = 0 }
         .merge(checkouts.map { |item| item["patron_name"] }.compact.tally)
     }

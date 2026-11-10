@@ -2,14 +2,18 @@
   Stat cards, shared by the dashboard and the patron pages so the two cannot
   drift apart. Ordered checkouts-then-holds, with each card linking to the
   table it summarises. `show_patrons` adds the family-member count, which
-  only makes sense on the dashboard.
+  only makes sense on the dashboard. `show_breakdown` adds the
+  physical/digital split, which is dropped while a format filter is on since
+  one side would always read zero.
 %>
 <div class="stats-grid">
     <a href="#checkouts" class="stat-card-link">
         <div class="stat-card">
             <span class="stat-number"><%= stats[:total_checkouts] %></span>
             <span class="stat-label">Checkouts</span>
-            <span class="stat-breakdown"><%= stats[:physical_checkouts] %> physical, <%= stats[:digital_checkouts] %> digital</span>
+            <% if show_breakdown %>
+                <span class="stat-breakdown"><%= stats[:physical_checkouts] %> physical, <%= stats[:digital_checkouts] %> digital</span>
+            <% end %>
         </div>
     </a>
     <a href="#checkouts" class="stat-card-link">
@@ -32,7 +36,9 @@
         <div class="stat-card">
             <span class="stat-number"><%= stats[:total_holds] %></span>
             <span class="stat-label">Holds</span>
-            <span class="stat-breakdown"><%= stats[:physical_holds] %> physical, <%= stats[:digital_holds] %> digital</span>
+            <% if show_breakdown %>
+                <span class="stat-breakdown"><%= stats[:physical_holds] %> physical, <%= stats[:digital_holds] %> digital</span>
+            <% end %>
         </div>
     </a>
     <a href="#holds" class="stat-card-link">

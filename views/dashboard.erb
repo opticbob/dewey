@@ -3,6 +3,7 @@
 <div class="section-header">
     <h1 class="section-title">Family Library Dashboard</h1>
     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+        <%= erb :_format_filter, locals: { base_path: "/" } %>
         <% if @data && @data[:last_updated] %>
             <div style="font-size: 0.85rem; color: #666;">
                 Scraped <%= relative_time(@data[:last_updated]) %>
@@ -17,7 +18,7 @@
 <%= erb :_scrape_failures, locals: { failures: @scrape_failures } %>
 
 <% if @data && @data[:stats] %>
-    <%= erb :_stats_grid, locals: { stats: @data[:stats], show_patrons: true } %>
+    <%= erb :_stats_grid, locals: { stats: @data[:stats], show_patrons: true, show_breakdown: @format.nil? } %>
 <% end %>
 
 <% if @data && @data[:checkouts] && !@data[:checkouts].empty? %>
@@ -31,8 +32,13 @@
 <% if (!@data || (@data[:checkouts]&.empty? && @data[:holds]&.empty?)) %>
     <div class="empty-state">
         <div class="empty-state-icon">📚</div>
-        <h3>No library activity found</h3>
-        <p>No current checkouts or holds. Make sure your library credentials are configured correctly and try refreshing.</p>
+        <% if @format %>
+            <h3>No <%= @format %> items right now</h3>
+            <p><a href="/">Show all items</a></p>
+        <% else %>
+            <h3>No library activity found</h3>
+            <p>No current checkouts or holds. Make sure your library credentials are configured correctly and try refreshing.</p>
+        <% end %>
     </div>
 <% end %>
 

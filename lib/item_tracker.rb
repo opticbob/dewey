@@ -1,6 +1,7 @@
 require "sqlite3"
 require "fileutils"
 require "time"
+require_relative "data_store"
 
 class ItemTracker
   attr_reader :db_path
@@ -428,8 +429,7 @@ class ItemTracker
     end
 
     # Check digital items - these disappear when auto-returned
-    format = previous["format"] || ""
-    if format.include?("eBook") || format.include?("eAudiobook") || format.include?("Digital")
+    if DataStore.digital_type?(previous["format"])
       if item_type == "checkout"
         return [true, "Digital item auto-returned on due date"]
       elsif state == "hold_ready"

@@ -136,14 +136,16 @@ class DeweyApp < Sinatra::Base
 
   # Web Dashboard Routes
   get "/" do
-    @data = @data_store.get_all_data
+    @format = format_filter
+    @data = @data_store.get_all_data(format: @format)
     @scrape_failures = @data_store.get_recent_scrape_failures
     erb :dashboard
   end
 
   get "/patron/:name" do
     patron_name = params[:name]
-    @data = @data_store.get_patron_data(patron_name)
+    @format = format_filter
+    @data = @data_store.get_patron_data(patron_name, format: @format)
     @patron_name = patron_name
     # Only this patron's failures: another patron's login trouble says nothing
     # about whether this page's data is current.
@@ -166,11 +168,11 @@ class DeweyApp < Sinatra::Base
 
   # API Routes for Home Assistant
   get "/api/status" do
-    json @data_store.get_all_data
+    json @data_store.get_all_data(format: format_filter)
   end
 
   get "/api/patron/:name" do
-    json @data_store.get_patron_data(params[:name])
+    json @data_store.get_patron_data(params[:name], format: format_filter)
   end
 
   get "/api/missing-items" do
@@ -245,6 +247,17 @@ class DeweyApp < Sinatra::Base
 
   # Helper methods for views
   helpers do
+    # The ?format= filter: "physical", "digital", or nil for all items. Any
+    # other value is ignored rather than showing an empty page.
+    def format_filter
+      params[:format] if DataStore::FORMATS.include?(params[:format])
+    end
+
+    # A link to `path` that keeps the given format filter.
+    def with_format(path, format)
+      format ? "#{path}?format=#{format}" : path
+    end
+
     def format_due_date(due_date_str)
       return "Unknown" unless due_date_str
 

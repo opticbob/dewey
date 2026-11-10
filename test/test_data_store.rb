@@ -203,6 +203,86 @@ class TestDataStore < Minitest::Test
     assert_equal 1, stats[:physical_checkouts]
   end
 
+  def test_online_magazines_count_as_digital
+    @store.save_checkouts([
+      checkout(item_id: "1", type: "Online Magazine"),
+      checkout(item_id: "2", type: "Magazine")
+    ])
+
+    stats = @store.get_all_data[:stats]
+    assert_equal 1, stats[:digital_checkouts]
+    assert_equal 1, stats[:physical_checkouts]
+  end
+
+  def seed_mixed_formats
+    @store.save_checkouts([
+      checkout(item_id: "book", patron_name: "Josh", type: "Book", due_date: (Date.today - 1).to_s),
+      checkout(item_id: "ebook", patron_name: "Josh", type: "eBook"),
+      checkout(item_id: "untyped", patron_name: "Jett", type: nil)
+    ])
+    @store.save_holds([
+      hold(item_id: "dvd", patron_name: "Josh", type: "DVD"),
+      hold(item_id: "audio", patron_name: "Ada", type: "eAudiobook", status: "ready")
+    ])
+  end
+
+  def test_physical_filter_keeps_only_physical_items
+    seed_mixed_formats
+
+    data = @store.get_all_data(format: "physical")
+    assert_equal %w[book untyped], data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[dvd], data[:holds].map { |i| i["item_id"] }
+  end
+
+  def test_digital_filter_keeps_only_digital_items
+    seed_mixed_formats
+
+    data = @store.get_all_data(format: "digital")
+    assert_equal %w[ebook], data[:checkouts].map { |i| i["item_id"] }
+    assert_equal %w[audio], data[:holds].map { |i| i["item_id"] }
+  end
+
+  def test_no_filter_returns_every_item
+    seed_mixed_formats
+
+    data = @store.get_all_data
+    assert_equal 3, data[:checkouts].length
+    assert_equal 2, data[:holds].length
+  end
+
+  def test_stats_follow_the_format_filter
+    seed_mixed_formats
+
+    physical = @store.get_all_data(format: "physical")[:stats]
+    assert_equal 2, physical[:total_checkouts]
+    assert_equal 1, physical[:items_overdue]
+    assert_equal 0, physical[:holds_ready]
+
+    digital = @store.get_all_data(format: "digital")[:stats]
+    assert_equal 1, digital[:total_checkouts]
+    assert_equal 0, digital[:items_overdue]
+    assert_equal 1, digital[:holds_ready]
+  end
+
+  # Ada has only a digital hold. Filtering to physical must not drop her from
+  # the header, or there would be no way to reach her page.
+  def test_filter_keeps_every_patron_in_the_list
+    seed_mixed_formats
+
+    stats = @store.get_all_data(format: "physical")[:stats]
+    assert_equal %w[Ada Jett Josh], stats[:patrons]
+    assert_equal({"Josh" => 1, "Jett" => 1, "Ada" => 0}, stats[:checkouts_by_patron])
+  end
+
+  def test_patron_data_applies_the_format_filter
+    seed_mixed_formats
+
+    data = @store.get_patron_data("Josh", format: "digital")
+    assert_equal %w[ebook], data[:checkouts].map { |i| i["item_id"] }
+    assert_empty data[:holds]
+    assert_equal 1, data[:stats][:total_checkouts]
+  end
+
   def test_stats_count_holds_ready_for_pickup
     @store.save_holds([
       hold(item_id: "r1", status: "ready"),
