@@ -106,6 +106,26 @@ class TestAppRefresh < Minitest::Test
     end
   end
 
+  def test_books_link_to_a_storygraph_search
+    store = DeweyApp.shared_data_store
+    store.save_checkouts([
+      {"item_id" => "1", "patron_name" => "Josh", "title" => "Moby-Dick",
+       "author" => "Melville, Herman", "due_date" => (Date.today + 7).to_s, "type" => "Book"},
+      {"item_id" => "2", "patron_name" => "Josh", "title" => "Jaws",
+       "due_date" => (Date.today + 7).to_s, "type" => "DVD"}
+    ])
+    store.save_holds([
+      {"item_id" => "3", "patron_name" => "Josh", "title" => "Persuasion & Pride",
+       "type" => "eAudiobook"}
+    ])
+
+    get "/"
+    assert_includes last_response.body,
+      'href="https://app.thestorygraph.com/browse?search_term=Moby-Dick+Melville%2C+Herman"'
+    assert_includes last_response.body, "search_term=Persuasion+%26+Pride"
+    refute_includes last_response.body, "search_term=Jaws", "DVDs aren't on StoryGraph"
+  end
+
   def test_an_unknown_format_shows_everything
     seed_mixed_formats
 

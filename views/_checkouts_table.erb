@@ -39,6 +39,9 @@
                             <div class="title-subtitle"><%= item['subtitle'] %></div>
                         <% end %>
                         <div class="title-author"><%= item['author'] || 'Unknown Author' %></div>
+                        <% if (storygraph = storygraph_url(item)) %>
+                            <a href="<%= Rack::Utils.escape_html(storygraph) %>" class="storygraph-link" target="_blank" rel="noopener">StoryGraph ↗</a>
+                        <% end %>
                     </td>
                     <td class="type-cell" data-label="Type">
                         <span class="badge badge-type"><%= item['type'] || 'Book' %></span>

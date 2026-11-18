@@ -7,6 +7,16 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-11-18
+
+### Added
+
+- **Books link to StoryGraph.** Every book, graphic novel, eBook and
+  eAudiobook in the checkouts and holds tables has a "StoryGraph ↗" link
+  under the author, which opens a StoryGraph search for its title and author.
+  It is a search rather than the book's own page because Dewey doesn't know
+  ISBNs. DVDs, CDs and magazines get no link.
+
 ## 2026-11-10
 
 ### Added

@@ -258,6 +258,18 @@ class DeweyApp < Sinatra::Base
       format ? "#{path}?format=#{format}" : path
     end
 
+    # A StoryGraph search for the item, or nil for things StoryGraph doesn't
+    # catalogue (DVDs, CDs, magazines). We don't scrape ISBNs, so this is a
+    # title-and-author search rather than a direct link to the book.
+    def storygraph_url(item)
+      return nil unless item["title"]
+      type = item["type"] || "Book"
+      return nil unless type.match?(/book|novel/i)
+
+      term = [item["title"], item["author"]].compact.join(" ")
+      "https://app.thestorygraph.com/browse?" + URI.encode_www_form(search_term: term)
+    end
+
     def format_due_date(due_date_str)
       return "Unknown" unless due_date_str
 
