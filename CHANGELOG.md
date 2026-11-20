@@ -7,6 +7,16 @@ the work landed on `main` rather than by version number. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely: each entry
 says what changed from a user's point of view, not which files moved.
 
+## 2026-11-20
+
+### Changed
+
+- **The Docker image now runs on Ruby 4.0.10** (from 4.0.9), picking up the
+  fixes for Ruby's 2026-11-18 advisory: seven memory bugs in the regular
+  expression engine and in string case conversion, some with proof-of-concept
+  remote code execution. Dewey lowercases and matches text scraped from the
+  library's site, so it is in the path. Nothing changes in how Dewey behaves.
+
 ## 2026-11-18
 
 ### Added
